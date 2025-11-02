@@ -41,8 +41,11 @@ struct MailView: UIViewControllerRepresentable {
         mailVC.setMessageBody(body, isHTML: false)
         
         // Attach PDF
-        if let pdfData = try? Data(contentsOf: pdfURL) {
+        do {
+            let pdfData = try Data(contentsOf: pdfURL)
             mailVC.addAttachmentData(pdfData, mimeType: "application/pdf", fileName: pdfURL.lastPathComponent)
+        } catch {
+            print("Error loading PDF attachment: \(error.localizedDescription)")
         }
         
         return mailVC

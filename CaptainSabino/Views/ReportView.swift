@@ -49,13 +49,16 @@ struct ReportView: View {
         }
         .sheet(isPresented: $showingMailView) {
             if let url = generatedPDFURL,
-               let settings = settings.first {
+               let currentSettings = settings.first {
                 MailView(
                     pdfURL: url,
-                    recipientEmail: settings.ownerEmail,
+                    recipientEmail: currentSettings.ownerEmail,
                     subject: "Expense Report - \(monthText)",
-                    yachtName: settings.yachtName
+                    yachtName: currentSettings.yachtName
                 )
+            } else {
+                // Fallback to prevent nil view (should never happen due to sendEmail() checks)
+                EmptyView()
             }
         }
         .alert(isGenerating ? "Generating..." : "Error", isPresented: .constant(isGenerating || showingAlert)) {
@@ -200,7 +203,7 @@ struct ReportView: View {
             if generatedPDFURL != nil {
                 HStack(spacing: 12) {
                     Button {
-                        showingMailView = true
+                        sendEmail()
                     } label: {
                         HStack {
                             Image(systemName: "envelope")
@@ -262,6 +265,28 @@ struct ReportView: View {
         }
     }
     
+    private func sendEmail() {
+        // Check if device can send email
+        guard EmailService.shared.canSendEmail() else {
+            showAlert("This device is not configured to send email. Please set up Mail app first.")
+            return
+        }
+
+        // Check if we have all required data
+        guard generatedPDFURL != nil else {
+            showAlert("Please generate a PDF first")
+            return
+        }
+
+        guard settings.first != nil else {
+            showAlert("Settings not configured")
+            return
+        }
+
+        // All checks passed, show mail view
+        showingMailView = true
+    }
+
     private func showAlert(_ message: String) {
         alertMessage = message
         showingAlert = true
