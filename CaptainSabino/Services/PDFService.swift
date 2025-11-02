@@ -39,14 +39,14 @@ class PDFService {
             context.beginPage()
             
             var yPosition: CGFloat = 40
-            
+
             // Header
-            yPosition = drawHeader(in: context, rect: pageRect, yPosition: yPosition, settings: settings, month: month)
+            yPosition = drawHeader(rect: pageRect, yPosition: yPosition, settings: settings, month: month)
             
             yPosition += 20
-            
+
             // Summary
-            yPosition = drawSummary(in: context, rect: pageRect, yPosition: yPosition, expenses: expenses)
+            yPosition = drawSummary(rect: pageRect, yPosition: yPosition, expenses: expenses)
             
             yPosition += 30
             
@@ -56,7 +56,9 @@ class PDFService {
         
         // Salva il PDF
         let fileName = "ExpenseReport_\(formatDateForFileName(month)).pdf"
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        guard let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            throw NSError(domain: "PDFService", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to access documents directory"])
+        }
         let pdfURL = documentsPath.appendingPathComponent(fileName)
         
         try data.write(to: pdfURL)
@@ -68,7 +70,6 @@ class PDFService {
     
     /// Disegna l'intestazione del PDF
     private func drawHeader(
-        in context: UIGraphicsPDFRendererContext,
         rect: CGRect,
         yPosition: CGFloat,
         settings: YachtSettings,
@@ -133,7 +134,6 @@ class PDFService {
     
     /// Disegna il sommario
     private func drawSummary(
-        in context: UIGraphicsPDFRendererContext,
         rect: CGRect,
         yPosition: CGFloat,
         expenses: [Expense]
@@ -186,9 +186,9 @@ class PDFService {
         let rightMargin: CGFloat = 40
         let tableWidth = rect.width - leftMargin - rightMargin
         
-        // Colonne: Date, Category, Amount, Percentage
-        let dateWidth: CGFloat = tableWidth * 0.20
-        let categoryWidth: CGFloat = tableWidth * 0.40
+        // Colonne: Count, Category, Amount, Percentage
+        let countWidth: CGFloat = tableWidth * 0.15
+        let categoryWidth: CGFloat = tableWidth * 0.45
         let amountWidth: CGFloat = tableWidth * 0.25
         let percentWidth: CGFloat = tableWidth * 0.15
         
@@ -205,10 +205,10 @@ class PDFService {
         UIBezierPath(rect: headerRect).fill()
         
         // Header text
-        "Date".draw(at: CGPoint(x: leftMargin + 8, y: y + 8), withAttributes: headerAttributes)
-        "Category".draw(at: CGPoint(x: leftMargin + dateWidth + 8, y: y + 8), withAttributes: headerAttributes)
-        "Amount".draw(at: CGPoint(x: leftMargin + dateWidth + categoryWidth + 8, y: y + 8), withAttributes: headerAttributes)
-        "%".draw(at: CGPoint(x: leftMargin + dateWidth + categoryWidth + amountWidth + 8, y: y + 8), withAttributes: headerAttributes)
+        "Count".draw(at: CGPoint(x: leftMargin + 8, y: y + 8), withAttributes: headerAttributes)
+        "Category".draw(at: CGPoint(x: leftMargin + countWidth + 8, y: y + 8), withAttributes: headerAttributes)
+        "Amount".draw(at: CGPoint(x: leftMargin + countWidth + categoryWidth + 8, y: y + 8), withAttributes: headerAttributes)
+        "%".draw(at: CGPoint(x: leftMargin + countWidth + categoryWidth + amountWidth + 8, y: y + 8), withAttributes: headerAttributes)
         
         y += 30
         
@@ -217,7 +217,7 @@ class PDFService {
         
         // Raggruppa per categoria
         let grouped = Dictionary(grouping: expenses) { $0.category?.name ?? "Unknown" }
-        let categoryTotals = grouped.map { (category: $0.key, total: $0.value.reduce(0) { $0 + $1.amount }) }
+        let categoryTotals = grouped.map { (category: $0.key, total: $0.value.reduce(0) { $0 + $1.amount }, count: $0.value.count) }
             .sorted { $0.total > $1.total }
         
         // Celle dati
@@ -237,17 +237,13 @@ class PDFService {
                 UIBezierPath(rect: rowRect).fill()
             }
             
-            // Get first expense date from this category
-            let firstExpense = expenses.first { $0.category?.name == item.category }
-            let dateStr = firstExpense != nil ? formatDateShort(firstExpense!.date) : "-"
-            
             let percentage = totalAmount > 0 ? (item.total / totalAmount) * 100 : 0
-            
+
             // Draw cells
-            dateStr.draw(at: CGPoint(x: leftMargin + 8, y: y + 6), withAttributes: cellAttributes)
-            item.category.draw(at: CGPoint(x: leftMargin + dateWidth + 8, y: y + 6), withAttributes: cellAttributes)
-            String(format: "€%.2f", item.total).draw(at: CGPoint(x: leftMargin + dateWidth + categoryWidth + 8, y: y + 6), withAttributes: cellAttributes)
-            String(format: "%.1f%%", percentage).draw(at: CGPoint(x: leftMargin + dateWidth + categoryWidth + amountWidth + 8, y: y + 6), withAttributes: cellAttributes)
+            "\(item.count)".draw(at: CGPoint(x: leftMargin + 8, y: y + 6), withAttributes: cellAttributes)
+            item.category.draw(at: CGPoint(x: leftMargin + countWidth + 8, y: y + 6), withAttributes: cellAttributes)
+            String(format: "€%.2f", item.total).draw(at: CGPoint(x: leftMargin + countWidth + categoryWidth + 8, y: y + 6), withAttributes: cellAttributes)
+            String(format: "%.1f%%", percentage).draw(at: CGPoint(x: leftMargin + countWidth + categoryWidth + amountWidth + 8, y: y + 6), withAttributes: cellAttributes)
             
             y += 25
             isAlternate.toggle()
@@ -265,9 +261,9 @@ class PDFService {
             .foregroundColor: UIColor.black
         ]
         
-        "TOTAL".draw(at: CGPoint(x: leftMargin + dateWidth + 8, y: y + 8), withAttributes: footerAttributes)
-        String(format: "€%.2f", totalAmount).draw(at: CGPoint(x: leftMargin + dateWidth + categoryWidth + 8, y: y + 8), withAttributes: footerAttributes)
-        "100%".draw(at: CGPoint(x: leftMargin + dateWidth + categoryWidth + amountWidth + 8, y: y + 8), withAttributes: footerAttributes)
+        "TOTAL".draw(at: CGPoint(x: leftMargin + countWidth + 8, y: y + 8), withAttributes: footerAttributes)
+        String(format: "€%.2f", totalAmount).draw(at: CGPoint(x: leftMargin + countWidth + categoryWidth + 8, y: y + 8), withAttributes: footerAttributes)
+        "100%".draw(at: CGPoint(x: leftMargin + countWidth + categoryWidth + amountWidth + 8, y: y + 8), withAttributes: footerAttributes)
     }
     
     // MARK: - Helper Methods
