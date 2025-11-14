@@ -25,23 +25,38 @@ struct DashboardView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    // Title and Month Selector on same line
-                    titleWithMonthSelector
-
-                    // Quick Actions (moved up)
-                    quickActionsSection
-
+                    // Month Selector
+                    monthSelectorSection
+                    
+                    // Total Card
+                    totalExpenseCard
+                    
                     // Chart
                     if !filteredExpenses.isEmpty {
                         chartSection
                     }
-
+                    
                     // Category Breakdown
                     categoryBreakdownSection
+                    
+                    // Quick Actions
+                    quickActionsSection
                 }
                 .padding()
             }
-            .navigationBarHidden(true)
+            .navigationTitle("Dashboard")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showingMonthPicker.toggle()
+                    } label: {
+                        Image(systemName: "calendar")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingMonthPicker) {
+                MonthPickerView(selectedMonth: $selectedMonth)
+            }
         }
     }
     
@@ -61,87 +76,96 @@ struct DashboardView: View {
     }
     
     /// Raggruppa spese per categoria
-    private var expensesByCategory: [(category: String, total: Double, color: Color, icon: String)] {
+    private var expensesByCategory: [(category: String, total: Double, color: Color)] {
         let grouped = Dictionary(grouping: filteredExpenses) { $0.category?.name ?? "Unknown" }
         return grouped.map { key, values in
             let total = values.reduce(0) { $0 + $1.amount }
             let color = values.first?.category?.color ?? .gray
-            let icon = values.first?.category?.icon ?? "questionmark.circle"
-            return (category: key, total: total, color: color, icon: icon)
+            return (category: key, total: total, color: color)
         }
         .sorted { $0.total > $1.total }
     }
     
     // MARK: - View Components
-
-    private var titleWithMonthSelector: some View {
-        HStack(alignment: .center) {
-            // Dashboard Title
-            Text("Dashboard")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-
-            Spacer()
-
-            // Month Selector (compact)
-            HStack(spacing: 12) {
-                Button {
-                    changeMonth(by: -1)
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.title3)
-                        .foregroundStyle(.primary)
-                }
-
-                Text(selectedMonthText)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .frame(minWidth: 100)
-
-                Button {
-                    changeMonth(by: 1)
-                } label: {
-                    Image(systemName: "chevron.right")
-                        .font(.title3)
-                        .foregroundStyle(.primary)
-                }
-                .disabled(isCurrentMonth)
+    
+    private var monthSelectorSection: some View {
+        HStack {
+            Button {
+                changeMonth(by: -1)
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.title2)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Color(.secondarySystemBackground))
-            .cornerRadius(10)
+            
+            Spacer()
+            
+            Text(selectedMonthText)
+                .font(.title2)
+                .fontWeight(.semibold)
+            
+            Spacer()
+            
+            Button {
+                changeMonth(by: 1)
+            } label: {
+                Image(systemName: "chevron.right")
+                    .font(.title2)
+            }
+            .disabled(isCurrentMonth)
         }
-        .padding(.top, 10)
+        .padding()
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(12)
+    }
+    
+    private var totalExpenseCard: some View {
+        VStack(spacing: 10) {
+            Text("Total Expenses")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            
+            Text(String(format: "€%.2f", totalAmount))
+                .font(.system(size: 42, weight: .bold, design: .rounded))
+                .foregroundStyle(.primary)
+            
+            Text("\(filteredExpenses.count) transactions")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 30)
+        .background(
+            LinearGradient(
+                colors: [Color.blue.opacity(0.2), Color.cyan.opacity(0.1)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .cornerRadius(15)
     }
     
     private var chartSection: some View {
         VStack(alignment: .leading, spacing: 15) {
             Text("Expenses by Category")
                 .font(.headline)
-
-            ZStack {
-                Chart(expensesByCategory, id: \.category) { item in
-                    SectorMark(
-                        angle: .value("Amount", item.total),
-                        innerRadius: .ratio(0.618),
-                        angularInset: 1.5
-                    )
-                    .foregroundStyle(item.color)
-                }
-                .frame(height: 250)
-
-                // Total in the center
-                VStack(spacing: 4) {
-                    Text(String(format: "€%.2f", totalAmount))
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
-                        .foregroundStyle(.primary)
-
-                    Text("\(filteredExpenses.count) items")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            
+            Chart(expensesByCategory, id: \.category) { item in
+                SectorMark(
+                    angle: .value("Amount", item.total),
+                    innerRadius: .ratio(0.5),
+                    angularInset: 2
+                )
+                .foregroundStyle(item.color)
+                .annotation(position: .overlay) {
+                    if item.total / totalAmount > 0.1 {
+                        Text(String(format: "%.0f%%", (item.total / totalAmount) * 100))
+                            .font(.caption2)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.white)
+                    }
                 }
             }
+            .frame(height: 250)
         }
         .padding()
         .background(Color(.secondarySystemBackground))
@@ -150,43 +174,31 @@ struct DashboardView: View {
     
     private var categoryBreakdownSection: some View {
         VStack(alignment: .leading, spacing: 15) {
-            Text("Category")
+            Text("Category Breakdown")
                 .font(.headline)
-
+            
             ForEach(expensesByCategory, id: \.category) { item in
-                HStack(spacing: 12) {
-                    // Category Icon (like in ExpenseRowView)
-                    ZStack {
-                        Circle()
-                            .fill(item.color.opacity(0.2))
-                            .frame(width: 40, height: 40)
-
-                        Image(systemName: item.icon)
-                            .font(.system(size: 18))
-                            .foregroundStyle(item.color)
-                    }
-
-                    // Category Name
+                HStack {
+                    Circle()
+                        .fill(item.color)
+                        .frame(width: 12, height: 12)
+                    
                     Text(item.category)
-                        .font(.body)
-                        .fontWeight(.medium)
-
+                        .font(.subheadline)
+                    
                     Spacer()
-
-                    // Percentage and Amount
-                    HStack(spacing: 8) {
-                        Text(String(format: "%.0f%%", (item.total / totalAmount) * 100))
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .frame(minWidth: 40, alignment: .trailing)
-
+                    
+                    VStack(alignment: .trailing, spacing: 2) {
                         Text(String(format: "€%.2f", item.total))
-                            .font(.body)
+                            .font(.subheadline)
                             .fontWeight(.semibold)
-                            .frame(minWidth: 80, alignment: .trailing)
+                        
+                        Text(String(format: "%.1f%%", (item.total / totalAmount) * 100))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, 8)
             }
         }
         .padding()
@@ -195,38 +207,36 @@ struct DashboardView: View {
     }
     
     private var quickActionsSection: some View {
-        HStack(spacing: 12) {
-            // Add Expense Button
+        VStack(spacing: 12) {
             NavigationLink {
                 AddExpenseView()
             } label: {
-                VStack(spacing: 6) {
+                HStack {
                     Image(systemName: "plus.circle.fill")
                         .font(.title2)
-                    Text("Add Expense")
-                        .font(.subheadline)
+                    Text("Add New Expense")
                         .fontWeight(.semibold)
+                    Spacer()
+                    Image(systemName: "chevron.right")
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
+                .padding()
                 .background(Color.blue)
                 .foregroundStyle(.white)
                 .cornerRadius(12)
             }
-
-            // Generate Report Button
+            
             NavigationLink {
                 ReportView(selectedMonth: selectedMonth)
             } label: {
-                VStack(spacing: 6) {
+                HStack {
                     Image(systemName: "doc.text")
                         .font(.title2)
-                    Text("Report")
-                        .font(.subheadline)
+                    Text("Generate Report")
                         .fontWeight(.semibold)
+                    Spacer()
+                    Image(systemName: "chevron.right")
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
+                .padding()
                 .background(Color.green)
                 .foregroundStyle(.white)
                 .cornerRadius(12)
