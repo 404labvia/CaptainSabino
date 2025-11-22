@@ -10,43 +10,94 @@ import SwiftData
 
 struct ContentView: View {
     // MARK: - Properties
-    
+
     @Environment(\.modelContext) private var modelContext
     @Query private var categories: [Category]
     @Query private var settings: [YachtSettings]
     @State private var showingOnboarding = false
-    
+    @State private var showingAddMenu = false
+    @State private var showingAddExpense = false
+    @State private var showingAddReminder = false
+
     // MARK: - Body
-    
+
     var body: some View {
         Group {
             if needsOnboarding {
                 OnboardingView()
             } else {
-                TabView {
-                    // Tab 1: Dashboard
-                    DashboardView()
-                        .tabItem {
-                            Label("Dashboard", systemImage: "chart.pie")
+                ZStack {
+                    TabView {
+                        // Tab 1: Dashboard
+                        DashboardView()
+                            .tabItem {
+                                Label("Dashboard", systemImage: "chart.pie")
+                            }
+
+                        // Tab 2: Expenses List
+                        ExpenseListView()
+                            .tabItem {
+                                Label("Expenses", systemImage: "list.bullet")
+                            }
+
+                        // Placeholder for center button
+                        Color.clear
+                            .tabItem {
+                                Label("", systemImage: "")
+                            }
+
+                        // Tab 3: Reminders
+                        ReminderListView()
+                            .tabItem {
+                                Label("Reminders", systemImage: "bell")
+                            }
+
+                        // Tab 4: Settings
+                        SettingsView()
+                            .tabItem {
+                                Label("Settings", systemImage: "gearshape")
+                            }
+                    }
+
+                    // Floating Add Button
+                    VStack {
+                        Spacer()
+
+                        Button {
+                            showingAddMenu.toggle()
+                        } label: {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.blue)
+                                    .frame(width: 60, height: 60)
+                                    .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
+
+                                Image(systemName: "plus")
+                                    .font(.system(size: 28, weight: .semibold))
+                                    .foregroundStyle(.white)
+                            }
                         }
-                    
-                    // Tab 2: Expenses List
-                    ExpenseListView()
-                        .tabItem {
-                            Label("Expenses", systemImage: "list.bullet")
-                        }
-                    
-                    // Tab 3: Reminders
-                    ReminderListView()
-                        .tabItem {
-                            Label("Reminders", systemImage: "bell")
-                        }
-                    
-                    // Tab 4: Settings
-                    SettingsView()
-                        .tabItem {
-                            Label("Settings", systemImage: "gearshape")
-                        }
+                        .padding(.bottom, 30)
+                    }
+                }
+                .sheet(isPresented: $showingAddExpense) {
+                    AddExpenseView()
+                }
+                .sheet(isPresented: $showingAddReminder) {
+                    AddReminderView()
+                }
+                .confirmationDialog("Add New", isPresented: $showingAddMenu) {
+                    Button("Add Expense") {
+                        showingAddExpense = true
+                    }
+
+                    Button("Add Reminder") {
+                        showingAddReminder = true
+                    }
+
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("What would you like to add?")
                 }
             }
         }
