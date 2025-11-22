@@ -10,18 +10,22 @@ import SwiftData
 
 struct AddExpenseView: View {
     // MARK: - Properties
-    
+
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Query private var categories: [Category]
-    
+
+    // Prefilled data from voice input (optional)
+    var prefilledAmount: Double?
+    var prefilledCategory: Category?
+
     @State private var amount = ""
     @State private var selectedCategory: Category?
     @State private var date = Date()
     @State private var notes = ""
     @State private var showingAlert = false
     @State private var alertMessage = ""
-    
+
     // MARK: - Body
     
     var body: some View {
@@ -92,11 +96,26 @@ struct AddExpenseView: View {
             } message: {
                 Text(alertMessage)
             }
+            .onAppear {
+                loadPrefilledData()
+            }
         }
     }
     
     // MARK: - Methods
-    
+
+    private func loadPrefilledData() {
+        // Load prefilled amount
+        if let prefilledAmount = prefilledAmount {
+            amount = String(format: "%.2f", prefilledAmount)
+        }
+
+        // Load prefilled category
+        if let prefilledCategory = prefilledCategory {
+            selectedCategory = prefilledCategory
+        }
+    }
+
     private func saveExpense() {
         // Validate amount
         guard let amountValue = Double(amount.replacingOccurrences(of: ",", with: ".")),

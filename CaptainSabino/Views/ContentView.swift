@@ -18,6 +18,7 @@ struct ContentView: View {
     @State private var showingOnboarding = false
     @State private var showingAddMenu = false
     @State private var showingAddExpense = false
+    @State private var showingVoiceInput = false
     @State private var showingAddReminder = false
 
     // MARK: - Body
@@ -91,21 +92,24 @@ struct ContentView: View {
                 .sheet(isPresented: $showingAddExpense) {
                     AddExpenseView()
                 }
+                .sheet(isPresented: $showingVoiceInput) {
+                    VoiceInputView()
+                }
                 .sheet(isPresented: $showingAddReminder) {
                     AddReminderView()
                 }
-                .confirmationDialog("Add New", isPresented: $showingAddMenu) {
-                    Button("Add Expense") {
+                .confirmationDialog("Add New Expense", isPresented: $showingAddMenu) {
+                    Button("Manual Entry") {
                         showingAddExpense = true
                     }
 
-                    Button("Add Reminder") {
-                        showingAddReminder = true
+                    Button("Voice Input") {
+                        showingVoiceInput = true
                     }
 
                     Button("Cancel", role: .cancel) {}
                 } message: {
-                    Text("What would you like to add?")
+                    Text("Choose how to add expense")
                 }
             }
         }
@@ -155,21 +159,23 @@ struct ContentView: View {
         }
     }
 
-    /// Aggiorna i colori delle categorie esistenti con i nuovi colori
+    /// Aggiorna i colori delle categorie esistenti con i nuovi colori e aggiunge nuove categorie
     private func updateCategoryColorsIfNeeded() {
-        let hasUpdatedColors = UserDefaults.standard.bool(forKey: "hasUpdatedCategoryColors_v2")
+        let hasUpdatedCategories = UserDefaults.standard.bool(forKey: "hasUpdatedCategories_v3")
 
-        guard !hasUpdatedColors else { return }
+        guard !hasUpdatedCategories else { return }
 
-        // Mapping dei nuovi colori
+        // Mapping dei nuovi colori per categorie esistenti
         let colorMapping: [String: String] = [
             "Food": "#E53935",        // Rosso vivace
             "Fuel": "#1E88E5",        // Blu navy
             "Pharmacy": "#00897B",    // Verde smeraldo
-            "Maintenance": "#FB8C00", // Arancione
-            "Mooring": "#5E35B1",     // Viola
             "Crew": "#D81B60",        // Magenta
-            "Supplies": "#6D4C41"     // Marrone
+            "Chandlery": "#FB8C00",   // Arancione
+            "Water Test": "#03A9F4",  // Azzurro
+            "Welder": "#FF6F00",      // Arancione scuro
+            "Tender Fuel": "#607D8B", // Grigio-blu
+            "Fly": "#00BCD4"          // Celeste
         ]
 
         // Aggiorna i colori delle categorie esistenti
@@ -179,10 +185,27 @@ struct ContentView: View {
             }
         }
 
+        // Aggiungi nuove categorie se non esistono
+        let existingCategoryNames = Set(categories.map { $0.name })
+        let newCategories: [(name: String, icon: String, color: String)] = [
+            ("Chandlery", "wrench.and.screwdriver", "#FB8C00"),
+            ("Water Test", "drop.triangle", "#03A9F4"),
+            ("Welder", "flame", "#FF6F00"),
+            ("Tender Fuel", "fuelpump.fill", "#607D8B"),
+            ("Fly", "airplane", "#00BCD4")
+        ]
+
+        for newCat in newCategories {
+            if !existingCategoryNames.contains(newCat.name) {
+                let category = Category(name: newCat.name, icon: newCat.icon, color: newCat.color)
+                modelContext.insert(category)
+            }
+        }
+
         try? modelContext.save()
 
         // Salva il flag per non ripetere l'aggiornamento
-        UserDefaults.standard.set(true, forKey: "hasUpdatedCategoryColors_v2")
+        UserDefaults.standard.set(true, forKey: "hasUpdatedCategories_v3")
     }
 
     /// Richiede i permessi per le notifiche all'avvio dell'app

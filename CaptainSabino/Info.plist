@@ -4,5 +4,9 @@
 <dict>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>CaptainSabino needs notification permission to remind you of important deadlines and maintenance schedules.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>CaptainSabino needs speech recognition to allow you to add expenses by voice.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>CaptainSabino needs microphone access to record your voice for expense input.</string>
 </dict>
 </plist>

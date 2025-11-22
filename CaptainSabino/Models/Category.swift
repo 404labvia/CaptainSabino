@@ -93,24 +93,34 @@ extension Category {
                 color: "#00897B"  // Verde smeraldo
             ),
             Category(
-                name: "Maintenance",
-                icon: "wrench.and.screwdriver",
-                color: "#FB8C00"  // Arancione
-            ),
-            Category(
-                name: "Mooring",
-                icon: "anchor",
-                color: "#5E35B1"  // Viola
-            ),
-            Category(
                 name: "Crew",
                 icon: "person.3",
                 color: "#D81B60"  // Magenta
             ),
             Category(
-                name: "Supplies",
-                icon: "shippingbox",
-                color: "#6D4C41"  // Marrone
+                name: "Chandlery",
+                icon: "wrench.and.screwdriver",
+                color: "#FB8C00"  // Arancione
+            ),
+            Category(
+                name: "Water Test",
+                icon: "drop.triangle",
+                color: "#03A9F4"  // Azzurro
+            ),
+            Category(
+                name: "Welder",
+                icon: "flame",
+                color: "#FF6F00"  // Arancione scuro
+            ),
+            Category(
+                name: "Tender Fuel",
+                icon: "fuelpump.fill",
+                color: "#607D8B"  // Grigio-blu
+            ),
+            Category(
+                name: "Fly",
+                icon: "airplane",
+                color: "#00BCD4"  // Celeste
             )
         ]
     }
