@@ -73,6 +73,30 @@ final class Expense {
     var formattedAmount: String {
         return String(format: "€%.2f", amount)
     }
+
+    /// Ritorna la chiave per raggruppamento per giorno (data senza ora)
+    var dayKey: Date {
+        Calendar.current.startOfDay(for: date)
+    }
+
+    /// Ritorna il testo per l'header del giorno (Today, Yesterday, o data completa)
+    var dayHeaderText: String {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let expenseDay = calendar.startOfDay(for: date)
+
+        if expenseDay == today {
+            return "Today"
+        } else if let yesterday = calendar.date(byAdding: .day, value: -1, to: today),
+                  expenseDay == yesterday {
+            return "Yesterday"
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .long
+            formatter.timeStyle = .none
+            return formatter.string(from: date)
+        }
+    }
 }
 
 // MARK: - Extension per Sample Data (Preview)

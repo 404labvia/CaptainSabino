@@ -146,7 +146,7 @@ struct DashboardView: View {
         .padding()
         .background(Color(.secondarySystemBackground))
         .cornerRadius(15)
-        .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)
+        .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
     }
 
     private var categoryBreakdownSection: some View {
@@ -193,7 +193,7 @@ struct DashboardView: View {
         .padding()
         .background(Color(.secondarySystemBackground))
         .cornerRadius(15)
-        .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)
+        .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
     }
 
     private var quickActionsSection: some View {
@@ -214,7 +214,7 @@ struct DashboardView: View {
                 .background(Color.blue)
                 .foregroundStyle(.white)
                 .cornerRadius(12)
-                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                .shadow(color: .black.opacity(0.2), radius: 6, x: 0, y: 3)
             }
 
             // Generate Report Button
@@ -233,7 +233,7 @@ struct DashboardView: View {
                 .background(Color.green)
                 .foregroundStyle(.white)
                 .cornerRadius(12)
-                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                .shadow(color: .black.opacity(0.2), radius: 6, x: 0, y: 3)
             }
         }
     }

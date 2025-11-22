@@ -26,59 +26,47 @@ struct ContentView: View {
             if needsOnboarding {
                 OnboardingView()
             } else {
-                ZStack {
-                    TabView {
-                        // Tab 1: Dashboard
-                        DashboardView()
-                            .tabItem {
-                                Label("Dashboard", systemImage: "chart.pie")
-                            }
-
-                        // Tab 2: Expenses List
-                        ExpenseListView()
-                            .tabItem {
-                                Label("Expenses", systemImage: "list.bullet")
-                            }
-
-                        // Placeholder for center button
-                        Color.clear
-                            .tabItem {
-                                Label("", systemImage: "")
-                            }
-
-                        // Tab 3: Reminders
-                        ReminderListView()
-                            .tabItem {
-                                Label("Reminders", systemImage: "bell")
-                            }
-
-                        // Tab 4: Settings
-                        SettingsView()
-                            .tabItem {
-                                Label("Settings", systemImage: "gearshape")
-                            }
-                    }
-
-                    // Floating Add Button
-                    VStack {
-                        Spacer()
-
-                        Button {
-                            showingAddMenu.toggle()
-                        } label: {
-                            ZStack {
-                                Circle()
-                                    .fill(Color.blue)
-                                    .frame(width: 60, height: 60)
-                                    .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
-
-                                Image(systemName: "plus")
-                                    .font(.system(size: 28, weight: .semibold))
-                                    .foregroundStyle(.white)
-                            }
+                TabView {
+                    // Tab 1: Dashboard
+                    DashboardView()
+                        .tabItem {
+                            Label("Dashboard", systemImage: "chart.pie")
                         }
-                        .padding(.bottom, 30)
-                    }
+
+                    // Tab 2: Expenses List
+                    ExpenseListView()
+                        .tabItem {
+                            Label("Expenses", systemImage: "list.bullet")
+                        }
+
+                    // Tab 3: Add Button (elevated)
+                    Color.clear
+                        .onTapGesture {
+                            showingAddMenu.toggle()
+                        }
+                        .tabItem {
+                            Label("", systemImage: "plus.circle.fill")
+                                .environment(\.symbolVariants, .none)
+                        }
+
+                    // Tab 4: Reminders
+                    ReminderListView()
+                        .tabItem {
+                            Label("Reminders", systemImage: "bell")
+                        }
+
+                    // Tab 5: Settings
+                    SettingsView()
+                        .tabItem {
+                            Label("Settings", systemImage: "gearshape")
+                        }
+                }
+                .onAppear {
+                    // Customize tab bar appearance for elevated center button effect
+                    let appearance = UITabBarAppearance()
+                    appearance.configureWithDefaultBackground()
+                    UITabBar.appearance().standardAppearance = appearance
+                    UITabBar.appearance().scrollEdgeAppearance = appearance
                 }
                 .sheet(isPresented: $showingAddExpense) {
                     AddExpenseView()
@@ -103,6 +91,7 @@ struct ContentView: View {
         }
         .onAppear {
             initializeDataIfNeeded()
+            requestNotificationPermissions()
         }
     }
     
@@ -163,6 +152,17 @@ struct ContentView: View {
 
         // Salva il flag per non ripetere l'aggiornamento
         UserDefaults.standard.set(true, forKey: "hasUpdatedCategoryColors_v2")
+    }
+
+    /// Richiede i permessi per le notifiche all'avvio dell'app
+    private func requestNotificationPermissions() {
+        NotificationService.shared.requestAuthorization { granted in
+            if granted {
+                print("✅ Notification permissions granted")
+            } else {
+                print("⚠️ Notification permissions denied")
+            }
+        }
     }
 }
 

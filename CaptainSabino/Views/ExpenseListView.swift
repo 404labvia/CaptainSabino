@@ -84,9 +84,9 @@ struct ExpenseListView: View {
     
     private var expenseListView: some View {
         List {
-            ForEach(sortedMonthYears, id: \.self) { monthYear in
-                Section(header: Text(monthYear).font(.headline)) {
-                    ForEach(groupedExpenses[monthYear] ?? []) { expense in
+            ForEach(sortedDays, id: \.self) { day in
+                Section(header: Text(dayHeaderText(for: day)).font(.headline)) {
+                    ForEach(expensesGroupedByDay[day] ?? []) { expense in
                         NavigationLink {
                             EditExpenseView(expense: expense)
                         } label: {
@@ -94,7 +94,7 @@ struct ExpenseListView: View {
                         }
                     }
                     .onDelete { indexSet in
-                        deleteExpenses(at: indexSet, in: monthYear)
+                        deleteExpenses(at: indexSet, on: day)
                     }
                 }
             }
@@ -129,29 +129,38 @@ struct ExpenseListView: View {
         .padding()
     }
     
-    private var groupedExpenses: [String: [Expense]] {
-        Dictionary(grouping: filteredExpenses) { $0.monthYear }
+    private var expensesGroupedByDay: [Date: [Expense]] {
+        Dictionary(grouping: filteredExpenses) { $0.dayKey }
     }
 
-    private var sortedMonthYears: [String] {
-        // Group expenses by month-year and get the most recent date in each group
-        let monthYearWithDates = Dictionary(grouping: filteredExpenses) { $0.monthYear }
-            .mapValues { expenses in
-                expenses.map { $0.date }.max() ?? Date.distantPast
-            }
-
-        // Sort month-years by their most recent date (descending)
-        return monthYearWithDates
-            .sorted { $0.value > $1.value }
-            .map { $0.key }
+    private var sortedDays: [Date] {
+        expensesGroupedByDay.keys.sorted(by: >)
     }
 
     // MARK: - Methods
-    
-    private func deleteExpenses(at offsets: IndexSet, in monthYear: String) {
-        let expensesInSection = groupedExpenses[monthYear] ?? []
+
+    private func deleteExpenses(at offsets: IndexSet, on day: Date) {
+        let expensesInSection = expensesGroupedByDay[day] ?? []
         for index in offsets {
             modelContext.delete(expensesInSection[index])
+        }
+    }
+
+    private func dayHeaderText(for day: Date) -> String {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let expenseDay = calendar.startOfDay(for: day)
+
+        if expenseDay == today {
+            return "Today"
+        } else if let yesterday = calendar.date(byAdding: .day, value: -1, to: today),
+                  expenseDay == yesterday {
+            return "Yesterday"
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .long
+            formatter.timeStyle = .none
+            return formatter.string(from: day)
         }
     }
 }
