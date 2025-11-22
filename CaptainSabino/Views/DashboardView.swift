@@ -77,8 +77,8 @@ struct DashboardView: View {
     private var titleWithMonthSelector: some View {
         HStack(alignment: .center) {
             // Dashboard Title
-            Text("Capt. Sabino")
-                .font(.title2)
+            Text("Dashboard")
+                .font(.largeTitle)
                 .fontWeight(.bold)
 
             Spacer()
@@ -146,9 +146,8 @@ struct DashboardView: View {
         .padding()
         .background(Color(.secondarySystemBackground))
         .cornerRadius(15)
-        .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)
     }
-
+    
     private var categoryBreakdownSection: some View {
         VStack(alignment: .leading, spacing: 15) {
             Text("Category")
@@ -193,47 +192,44 @@ struct DashboardView: View {
         .padding()
         .background(Color(.secondarySystemBackground))
         .cornerRadius(15)
-        .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)
     }
-
+    
     private var quickActionsSection: some View {
         HStack(spacing: 12) {
             // Add Expense Button
             NavigationLink {
                 AddExpenseView()
             } label: {
-                HStack(spacing: 8) {
+                VStack(spacing: 6) {
                     Image(systemName: "plus.circle.fill")
-                        .font(.title3)
+                        .font(.title2)
                     Text("Add Expense")
                         .font(.subheadline)
                         .fontWeight(.semibold)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
+                .padding(.vertical, 16)
                 .background(Color.blue)
                 .foregroundStyle(.white)
                 .cornerRadius(12)
-                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
             }
 
             // Generate Report Button
             NavigationLink {
                 ReportView(selectedMonth: selectedMonth)
             } label: {
-                HStack(spacing: 8) {
+                VStack(spacing: 6) {
                     Image(systemName: "doc.text")
-                        .font(.title3)
+                        .font(.title2)
                     Text("Report")
                         .font(.subheadline)
                         .fontWeight(.semibold)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
+                .padding(.vertical, 16)
                 .background(Color.green)
                 .foregroundStyle(.white)
                 .cornerRadius(12)
-                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
             }
         }
     }
