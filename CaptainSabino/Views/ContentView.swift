@@ -52,7 +52,7 @@ struct ContentView: View {
                             .tabItem {
                                 Label("Reminders", systemImage: "bell")
                             }
-                            .badge(activeRemindersCount > 0 ? activeRemindersCount : nil)
+                            .badge(remindersBadge)
 
                         // Tab 4: Settings
                         SettingsView()
@@ -119,6 +119,12 @@ struct ContentView: View {
     /// Conta i reminders attivi (non completati)
     private var activeRemindersCount: Int {
         reminders.filter { !$0.isCompleted }.count
+    }
+
+    /// Badge per la tab Reminders (nil se zero)
+    private var remindersBadge: Int? {
+        let count = activeRemindersCount
+        return count > 0 ? count : nil
     }
     
     // MARK: - Methods
