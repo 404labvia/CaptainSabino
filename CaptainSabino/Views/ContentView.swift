@@ -123,13 +123,46 @@ struct ContentView: View {
             for category in predefinedCategories {
                 modelContext.insert(category)
             }
-            
+
             // Crea settings vuoto
             let newSettings = YachtSettings()
             modelContext.insert(newSettings)
-            
+
             try? modelContext.save()
+        } else {
+            // Update existing category colors (migration)
+            updateCategoryColorsIfNeeded()
         }
+    }
+
+    /// Aggiorna i colori delle categorie esistenti con i nuovi colori
+    private func updateCategoryColorsIfNeeded() {
+        let hasUpdatedColors = UserDefaults.standard.bool(forKey: "hasUpdatedCategoryColors_v2")
+
+        guard !hasUpdatedColors else { return }
+
+        // Mapping dei nuovi colori
+        let colorMapping: [String: String] = [
+            "Food": "#E53935",        // Rosso vivace
+            "Fuel": "#1E88E5",        // Blu navy
+            "Pharmacy": "#00897B",    // Verde smeraldo
+            "Maintenance": "#FB8C00", // Arancione
+            "Mooring": "#5E35B1",     // Viola
+            "Crew": "#D81B60",        // Magenta
+            "Supplies": "#6D4C41"     // Marrone
+        ]
+
+        // Aggiorna i colori delle categorie esistenti
+        for category in categories where category.isPredefined {
+            if let newColor = colorMapping[category.name] {
+                category.colorHex = newColor
+            }
+        }
+
+        try? modelContext.save()
+
+        // Salva il flag per non ripetere l'aggiornamento
+        UserDefaults.standard.set(true, forKey: "hasUpdatedCategoryColors_v2")
     }
 }
 

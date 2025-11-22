@@ -262,23 +262,40 @@ struct DashboardView: View {
 struct MonthPickerView: View {
     @Binding var selectedMonth: Date
     @Environment(\.dismiss) private var dismiss
-    
+
     var body: some View {
         NavigationStack {
-            DatePicker(
-                "Select Month",
-                selection: $selectedMonth,
-                displayedComponents: [.date]
-            )
-            .datePickerStyle(.graphical)
+            VStack(spacing: 20) {
+                Text("Select Month")
+                    .font(.headline)
+                    .padding(.top)
+
+                // Month/Year Picker
+                DatePicker(
+                    "",
+                    selection: $selectedMonth,
+                    displayedComponents: [.date]
+                )
+                .datePickerStyle(.wheel)
+                .labelsHidden()
+                .environment(\.locale, Locale(identifier: "en_US"))
+
+                Spacer()
+            }
             .padding()
             .navigationTitle("Select Month")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
                         dismiss()
                     }
+                    .fontWeight(.semibold)
                 }
             }
         }

@@ -281,8 +281,14 @@ struct ReportView: View {
                 await MainActor.run {
                     self.generatedPDFURL = pdfURL
                     self.isGenerating = false
-                    // Auto-show share sheet after PDF generation
-                    self.showingShareSheet = true
+
+                    // Small delay to ensure PDF is ready, then auto-show share sheet
+                    Task {
+                        try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
+                        await MainActor.run {
+                            self.showingShareSheet = true
+                        }
+                    }
                 }
             } catch {
                 await MainActor.run {
