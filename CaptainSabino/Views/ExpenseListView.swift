@@ -84,7 +84,7 @@ struct ExpenseListView: View {
     
     private var expenseListView: some View {
         List {
-            ForEach(groupedExpenses.keys.sorted(by: >), id: \.self) { monthYear in
+            ForEach(sortedMonthYears, id: \.self) { monthYear in
                 Section(header: Text(monthYear).font(.headline)) {
                     ForEach(groupedExpenses[monthYear] ?? []) { expense in
                         NavigationLink {
@@ -132,7 +132,24 @@ struct ExpenseListView: View {
     private var groupedExpenses: [String: [Expense]] {
         Dictionary(grouping: filteredExpenses) { $0.monthYear }
     }
-    
+
+    private var sortedMonthYears: [String] {
+        // Get unique month-year strings with their corresponding dates
+        let monthYearDates = Dictionary(grouping: filteredExpenses) { expense in
+            (monthYear: expense.monthYear, date: expense.date)
+        }
+
+        // Sort by the most recent date in each group (descending)
+        return monthYearDates.keys
+            .sorted { first, second in
+                // Get the most recent date for each month-year
+                let firstMaxDate = monthYearDates[first]?.map { $0.date }.max() ?? Date.distantPast
+                let secondMaxDate = monthYearDates[second]?.map { $0.date }.max() ?? Date.distantPast
+                return firstMaxDate > secondMaxDate
+            }
+            .map { $0.monthYear }
+    }
+
     // MARK: - Methods
     
     private func deleteExpenses(at offsets: IndexSet, in monthYear: String) {
