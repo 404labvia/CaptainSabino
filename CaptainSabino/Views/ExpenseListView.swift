@@ -134,20 +134,16 @@ struct ExpenseListView: View {
     }
 
     private var sortedMonthYears: [String] {
-        // Get unique month-year strings with their corresponding dates
-        let monthYearDates = Dictionary(grouping: filteredExpenses) { expense in
-            (monthYear: expense.monthYear, date: expense.date)
-        }
-
-        // Sort by the most recent date in each group (descending)
-        return monthYearDates.keys
-            .sorted { first, second in
-                // Get the most recent date for each month-year
-                let firstMaxDate = monthYearDates[first]?.map { $0.date }.max() ?? Date.distantPast
-                let secondMaxDate = monthYearDates[second]?.map { $0.date }.max() ?? Date.distantPast
-                return firstMaxDate > secondMaxDate
+        // Group expenses by month-year and get the most recent date in each group
+        let monthYearWithDates = Dictionary(grouping: filteredExpenses) { $0.monthYear }
+            .mapValues { expenses in
+                expenses.map { $0.date }.max() ?? Date.distantPast
             }
-            .map { $0.monthYear }
+
+        // Sort month-years by their most recent date (descending)
+        return monthYearWithDates
+            .sorted { $0.value > $1.value }
+            .map { $0.key }
     }
 
     // MARK: - Methods
