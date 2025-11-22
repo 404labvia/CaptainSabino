@@ -10,26 +10,19 @@ import SwiftData
 
 struct ReportView: View {
     // MARK: - Properties
-
+    
     @Environment(\.modelContext) private var modelContext
     @Query private var expenses: [Expense]
     @Query private var settings: [YachtSettings]
-
-    @State private var selectedMonth: Date
-    @State private var showingMonthPicker = false
-
+    
+    let selectedMonth: Date
+    
     @State private var isGenerating = false
     @State private var generatedPDFURL: URL?
     @State private var showingShareSheet = false
     @State private var showingMailView = false
     @State private var showingAlert = false
     @State private var alertMessage = ""
-
-    // MARK: - Initializer
-
-    init(selectedMonth: Date = Date()) {
-        _selectedMonth = State(initialValue: selectedMonth)
-    }
     
     // MARK: - Body
     
@@ -79,9 +72,6 @@ struct ReportView: View {
                 Text(alertMessage)
             }
         }
-        .sheet(isPresented: $showingMonthPicker) {
-            MonthPickerView(selectedMonth: $selectedMonth)
-        }
     }
     
     // MARK: - Computed Properties
@@ -116,30 +106,14 @@ struct ReportView: View {
             Image(systemName: "doc.text.fill")
                 .font(.system(size: 60))
                 .foregroundStyle(.blue)
-
+            
             Text("Expense Report")
                 .font(.title)
                 .fontWeight(.bold)
-
-            // Month selector button
-            Button {
-                showingMonthPicker = true
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "calendar")
-                        .font(.subheadline)
-                    Text(monthText)
-                        .font(.title3)
-                        .fontWeight(.semibold)
-                    Image(systemName: "chevron.down")
-                        .font(.caption)
-                }
+            
+            Text(monthText)
+                .font(.title3)
                 .foregroundStyle(.secondary)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(Color(.secondarySystemBackground))
-                .cornerRadius(10)
-            }
         }
     }
     
@@ -277,12 +251,10 @@ struct ReportView: View {
                     month: selectedMonth,
                     settings: settings
                 )
-
+                
                 await MainActor.run {
                     self.generatedPDFURL = pdfURL
                     self.isGenerating = false
-                    // Auto-show share sheet after PDF generation
-                    self.showingShareSheet = true
                 }
             } catch {
                 await MainActor.run {
