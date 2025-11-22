@@ -138,8 +138,8 @@ class PDFService {
         yPosition: CGFloat,
         expenses: [Expense]
     ) -> CGFloat {
-        var y = yPosition
-        
+        let y = yPosition
+
         let totalAmount = expenses.reduce(0) { $0 + $1.amount }
         let transactionCount = expenses.count
         
@@ -190,7 +190,7 @@ class PDFService {
         let countWidth: CGFloat = tableWidth * 0.15
         let categoryWidth: CGFloat = tableWidth * 0.45
         let amountWidth: CGFloat = tableWidth * 0.25
-        let percentWidth: CGFloat = tableWidth * 0.15
+        let _: CGFloat = tableWidth * 0.15  // percentWidth - calculated but spacing handled by layout
         
         // Header della tabella
         let headerFont = UIFont.boldSystemFont(ofSize: 11)

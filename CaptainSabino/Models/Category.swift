@@ -80,37 +80,37 @@ extension Category {
             Category(
                 name: "Food",
                 icon: "fork.knife",
-                color: "#FF6B6B"
+                color: "#E53935"  // Rosso vivace
             ),
             Category(
                 name: "Fuel",
                 icon: "fuelpump",
-                color: "#4ECDC4"
+                color: "#1E88E5"  // Blu navy
             ),
             Category(
                 name: "Pharmacy",
                 icon: "cross.case",
-                color: "#95E1D3"
+                color: "#00897B"  // Verde smeraldo
             ),
             Category(
                 name: "Maintenance",
                 icon: "wrench.and.screwdriver",
-                color: "#F38181"
+                color: "#FB8C00"  // Arancione
             ),
             Category(
                 name: "Mooring",
                 icon: "anchor",
-                color: "#AA96DA"
+                color: "#5E35B1"  // Viola
             ),
             Category(
                 name: "Crew",
                 icon: "person.3",
-                color: "#FCBAD3"
+                color: "#D81B60"  // Magenta
             ),
             Category(
                 name: "Supplies",
                 icon: "shippingbox",
-                color: "#FFFFD2"
+                color: "#6D4C41"  // Marrone
             )
         ]
     }
