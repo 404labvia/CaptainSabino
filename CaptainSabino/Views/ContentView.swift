@@ -49,10 +49,10 @@ struct ContentView: View {
 
                         // Tab 3: Reminders
                         ReminderListView()
+                            .badge(remindersBadge)
                             .tabItem {
                                 Label("Reminders", systemImage: "bell")
                             }
-                            .badge(remindersBadge)
 
                         // Tab 4: Settings
                         SettingsView()
