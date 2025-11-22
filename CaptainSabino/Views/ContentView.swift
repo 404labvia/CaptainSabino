@@ -14,6 +14,7 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var categories: [Category]
     @Query private var settings: [YachtSettings]
+    @Query private var reminders: [Reminder]
     @State private var showingOnboarding = false
     @State private var showingAddMenu = false
     @State private var showingAddExpense = false
@@ -26,47 +27,60 @@ struct ContentView: View {
             if needsOnboarding {
                 OnboardingView()
             } else {
-                TabView {
-                    // Tab 1: Dashboard
-                    DashboardView()
-                        .tabItem {
-                            Label("Dashboard", systemImage: "chart.pie")
-                        }
+                ZStack {
+                    TabView {
+                        // Tab 1: Dashboard
+                        DashboardView()
+                            .tabItem {
+                                Label("Dashboard", systemImage: "chart.pie")
+                            }
 
-                    // Tab 2: Expenses List
-                    ExpenseListView()
-                        .tabItem {
-                            Label("Expenses", systemImage: "list.bullet")
-                        }
+                        // Tab 2: Expenses List
+                        ExpenseListView()
+                            .tabItem {
+                                Label("Expenses", systemImage: "list.bullet")
+                            }
 
-                    // Tab 3: Add Button (elevated)
-                    Color.clear
-                        .onTapGesture {
+                        // Placeholder for center button
+                        Color.clear
+                            .tabItem {
+                                Label("", systemImage: "")
+                            }
+
+                        // Tab 3: Reminders
+                        ReminderListView()
+                            .tabItem {
+                                Label("Reminders", systemImage: "bell")
+                            }
+                            .badge(activeRemindersCount > 0 ? activeRemindersCount : nil)
+
+                        // Tab 4: Settings
+                        SettingsView()
+                            .tabItem {
+                                Label("Settings", systemImage: "gearshape")
+                            }
+                    }
+
+                    // Floating Add Button positioned at tab bar level
+                    VStack {
+                        Spacer()
+
+                        Button {
                             showingAddMenu.toggle()
-                        }
-                        .tabItem {
-                            Label("", systemImage: "plus.circle.fill")
-                                .environment(\.symbolVariants, .none)
-                        }
+                        } label: {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.blue)
+                                    .frame(width: 60, height: 60)
+                                    .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
 
-                    // Tab 4: Reminders
-                    ReminderListView()
-                        .tabItem {
-                            Label("Reminders", systemImage: "bell")
+                                Image(systemName: "plus")
+                                    .font(.system(size: 28, weight: .semibold))
+                                    .foregroundStyle(.white)
+                            }
                         }
-
-                    // Tab 5: Settings
-                    SettingsView()
-                        .tabItem {
-                            Label("Settings", systemImage: "gearshape")
-                        }
-                }
-                .onAppear {
-                    // Customize tab bar appearance for elevated center button effect
-                    let appearance = UITabBarAppearance()
-                    appearance.configureWithDefaultBackground()
-                    UITabBar.appearance().standardAppearance = appearance
-                    UITabBar.appearance().scrollEdgeAppearance = appearance
+                        .padding(.bottom, 30)
+                    }
                 }
                 .sheet(isPresented: $showingAddExpense) {
                     AddExpenseView()
@@ -96,10 +110,15 @@ struct ContentView: View {
     }
     
     // MARK: - Computed Properties
-    
+
     /// Verifica se serve l'onboarding (prima apertura)
     private var needsOnboarding: Bool {
         return settings.isEmpty || !settings[0].isComplete
+    }
+
+    /// Conta i reminders attivi (non completati)
+    private var activeRemindersCount: Int {
+        reminders.filter { !$0.isCompleted }.count
     }
     
     // MARK: - Methods

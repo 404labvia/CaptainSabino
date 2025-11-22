@@ -60,26 +60,22 @@ struct ReminderListView: View {
             if !activeReminders.isEmpty {
                 Section("Active") {
                     ForEach(activeReminders) { reminder in
-                        NavigationLink {
-                            EditReminderView(reminder: reminder)
-                        } label: {
-                            ReminderRowView(reminder: reminder)
-                        }
+                        ReminderRowView(reminder: reminder, onToggleComplete: {
+                            toggleCompletion(for: reminder)
+                        })
                     }
-                    .onDelete(perform: deleteReminders)
+                    .onDelete(perform: deleteActiveReminders)
                 }
             }
-            
+
             if !completedReminders.isEmpty {
                 Section("Completed") {
                     ForEach(completedReminders) { reminder in
-                        NavigationLink {
-                            EditReminderView(reminder: reminder)
-                        } label: {
-                            ReminderRowView(reminder: reminder)
-                        }
+                        ReminderRowView(reminder: reminder, onToggleComplete: {
+                            toggleCompletion(for: reminder)
+                        })
                     }
-                    .onDelete(perform: deleteReminders)
+                    .onDelete(perform: deleteCompletedReminders)
                 }
             }
         }
@@ -114,10 +110,34 @@ struct ReminderListView: View {
     }
     
     // MARK: - Methods
-    
-    private func deleteReminders(at offsets: IndexSet) {
+
+    private func toggleCompletion(for reminder: Reminder) {
+        reminder.isCompleted.toggle()
+
+        // Cancel notification if reminder is completed
+        if reminder.isCompleted, let notificationId = reminder.notificationId {
+            NotificationService.shared.cancelNotification(notificationId)
+        } else if !reminder.isCompleted {
+            // Reschedule notification if uncompleted
+            NotificationService.shared.scheduleReminder(reminder)
+        }
+
+        try? modelContext.save()
+    }
+
+    private func deleteActiveReminders(at offsets: IndexSet) {
         for index in offsets {
-            modelContext.delete(reminders[index])
+            let reminder = activeReminders[index]
+            if let notificationId = reminder.notificationId {
+                NotificationService.shared.cancelNotification(notificationId)
+            }
+            modelContext.delete(reminder)
+        }
+    }
+
+    private func deleteCompletedReminders(at offsets: IndexSet) {
+        for index in offsets {
+            modelContext.delete(completedReminders[index])
         }
     }
 }
@@ -126,50 +146,58 @@ struct ReminderListView: View {
 
 struct ReminderRowView: View {
     let reminder: Reminder
-    
+    let onToggleComplete: () -> Void
+
     var body: some View {
         HStack(spacing: 15) {
-            // Status Icon
-            ZStack {
-                Circle()
-                    .stroke(statusColor, lineWidth: 2)
-                    .frame(width: 24, height: 24)
-                
-                if reminder.isCompleted {
-                    Image(systemName: "checkmark")
-                        .font(.caption)
-                        .foregroundStyle(statusColor)
+            // Status Icon - Tappable
+            Button(action: onToggleComplete) {
+                ZStack {
+                    Circle()
+                        .stroke(statusColor, lineWidth: 2)
+                        .frame(width: 24, height: 24)
+
+                    if reminder.isCompleted {
+                        Image(systemName: "checkmark")
+                            .font(.caption)
+                            .foregroundStyle(statusColor)
+                    }
                 }
             }
-            
-            // Details
-            VStack(alignment: .leading, spacing: 4) {
-                Text(reminder.title)
-                    .font(.headline)
-                    .strikethrough(reminder.isCompleted)
-                
-                if !reminder.notes.isEmpty {
-                    Text(reminder.notes)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+            .buttonStyle(.plain)
+
+            // Details - Tappable to edit
+            NavigationLink {
+                EditReminderView(reminder: reminder)
+            } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(reminder.title)
+                        .font(.headline)
+                        .strikethrough(reminder.isCompleted)
+
+                    if !reminder.notes.isEmpty {
+                        Text(reminder.notes)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+
+                    HStack(spacing: 4) {
+                        Image(systemName: "calendar")
+                            .font(.caption)
+
+                        Text(reminder.formattedDueDate)
+                            .font(.caption)
+
+                        Text("•")
+                            .font(.caption)
+
+                        Text(reminder.statusText)
+                            .font(.caption)
+                            .foregroundStyle(statusColor)
+                    }
+                    .foregroundStyle(.tertiary)
                 }
-                
-                HStack(spacing: 4) {
-                    Image(systemName: "calendar")
-                        .font(.caption)
-                    
-                    Text(reminder.formattedDueDate)
-                        .font(.caption)
-                    
-                    Text("•")
-                        .font(.caption)
-                    
-                    Text(reminder.statusText)
-                        .font(.caption)
-                        .foregroundStyle(statusColor)
-                }
-                .foregroundStyle(.tertiary)
             }
         }
         .opacity(reminder.isCompleted ? 0.6 : 1.0)
