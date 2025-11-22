@@ -93,7 +93,7 @@ extension Category {
                 color: "#00897B"  // Verde smeraldo
             ),
             Category(
-                name: "Maintenance",
+                name: "Maintenancee",
                 icon: "wrench.and.screwdriver",
                 color: "#FB8C00"  // Arancione
             ),
