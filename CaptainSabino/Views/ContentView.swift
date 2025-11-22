@@ -48,11 +48,17 @@ struct ContentView: View {
                             }
 
                         // Tab 3: Reminders
-                        ReminderListView()
-                            .badge(remindersBadge)
-                            .tabItem {
-                                Label("Reminders", systemImage: "bell")
+                        Group {
+                            if let badge = remindersBadge {
+                                ReminderListView()
+                                    .badge(badge)
+                            } else {
+                                ReminderListView()
                             }
+                        }
+                        .tabItem {
+                            Label("Reminders", systemImage: "bell")
+                        }
 
                         // Tab 4: Settings
                         SettingsView()
