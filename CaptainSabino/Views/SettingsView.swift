@@ -27,10 +27,7 @@ struct SettingsView: View {
             List {
                 // Yacht Info Section
                 yachtInfoSection
-                
-                // Exchange Rate Section
-                exchangeRateSection
-                
+
                 // App Info Section
                 appInfoSection
             }
@@ -46,11 +43,11 @@ struct SettingsView: View {
     private var yachtInfoSection: some View {
         Section("Yacht Information") {
             if let settings = yachtSettings {
-                LabeledContent("Yacht Name", value: settings.yachtName)
-                LabeledContent("Owner", value: settings.ownerName)
+                LabeledContent("Yacht", value: settings.yachtName)
                 LabeledContent("Owner Email", value: settings.ownerEmail)
                 LabeledContent("Captain", value: settings.captainName)
-                
+                LabeledContent("Captain Email", value: settings.captainEmail)
+
                 Button {
                     showingEditSettings = true
                 } label: {
@@ -62,19 +59,7 @@ struct SettingsView: View {
             }
         }
     }
-    
-    private var exchangeRateSection: some View {
-        Section {
-            if let settings = yachtSettings {
-                LabeledContent("EUR to USD", value: String(format: "%.2f", settings.exchangeRateEURtoUSD))
-            }
-        } header: {
-            Text("Exchange Rate (Fixed)")
-        } footer: {
-            Text("This is a fixed exchange rate used for reference only")
-        }
-    }
-    
+
     private var appInfoSection: some View {
         Section("About") {
             LabeledContent("Version", value: "1.0.0")
@@ -97,12 +82,11 @@ struct EditSettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Query private var settings: [YachtSettings]
-    
+
     @State private var yachtName = ""
-    @State private var ownerName = ""
     @State private var ownerEmail = ""
     @State private var captainName = ""
-    @State private var exchangeRate = ""
+    @State private var captainEmail = ""
     @State private var showingAlert = false
     @State private var alertMessage = ""
     
@@ -110,21 +94,14 @@ struct EditSettingsView: View {
         NavigationStack {
             Form {
                 Section("Yacht Information") {
-                    TextField("Yacht Name", text: $yachtName)
-                    TextField("Owner Name", text: $ownerName)
+                    TextField("Yacht", text: $yachtName)
                     TextField("Owner Email", text: $ownerEmail)
                         .keyboardType(.emailAddress)
                         .autocapitalization(.none)
                     TextField("Captain Name", text: $captainName)
-                }
-                
-                Section {
-                    TextField("1.10", text: $exchangeRate)
-                        .keyboardType(.decimalPad)
-                } header: {
-                    Text("Exchange Rate")
-                } footer: {
-                    Text("EUR to USD fixed rate")
+                    TextField("Captain Email", text: $captainEmail)
+                        .keyboardType(.emailAddress)
+                        .autocapitalization(.none)
                 }
             }
             .navigationTitle("Edit Settings")
@@ -157,10 +134,9 @@ struct EditSettingsView: View {
     private func loadCurrentSettings() {
         if let current = settings.first {
             yachtName = current.yachtName
-            ownerName = current.ownerName
             ownerEmail = current.ownerEmail
             captainName = current.captainName
-            exchangeRate = String(format: "%.2f", current.exchangeRateEURtoUSD)
+            captainEmail = current.captainEmail
         }
     }
     
@@ -169,27 +145,25 @@ struct EditSettingsView: View {
             showAlert("Please enter yacht name")
             return
         }
-        
+
         guard !ownerEmail.isEmpty, ownerEmail.contains("@") else {
-            showAlert("Please enter a valid email")
+            showAlert("Please enter a valid owner email")
             return
         }
-        
-        guard let rateValue = Double(exchangeRate.replacingOccurrences(of: ",", with: ".")),
-              rateValue > 0 else {
-            showAlert("Please enter a valid exchange rate")
+
+        guard !captainEmail.isEmpty, captainEmail.contains("@") else {
+            showAlert("Please enter a valid captain email")
             return
         }
-        
+
         if let current = settings.first {
             current.yachtName = yachtName
-            current.ownerName = ownerName
             current.ownerEmail = ownerEmail
             current.captainName = captainName
-            current.exchangeRateEURtoUSD = rateValue
+            current.captainEmail = captainEmail
             current.touch()
         }
-        
+
         try? modelContext.save()
         dismiss()
     }

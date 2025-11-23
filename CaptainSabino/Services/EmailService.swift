@@ -16,27 +16,29 @@ struct MailView: UIViewControllerRepresentable {
     let recipientEmail: String
     let subject: String
     let yachtName: String
-    
+    let captainName: String
+
     @Environment(\.dismiss) private var dismiss
-    
+
     func makeUIViewController(context: Context) -> MFMailComposeViewController {
         let mailVC = MFMailComposeViewController()
         mailVC.mailComposeDelegate = context.coordinator
-        
+
         // Setup email
         mailVC.setToRecipients([recipientEmail])
         mailVC.setSubject(subject)
-        
+
         // Body
         let body = """
         Dear Owner,
-        
+
         Please find attached the expense report for \(yachtName).
-        
+
         This report includes a detailed breakdown of all expenses for the selected period.
-        
+
         Best regards,
-        YachtExpense App
+        \(captainName)
+        Captain
         """
         mailVC.setMessageBody(body, isHTML: false)
         
