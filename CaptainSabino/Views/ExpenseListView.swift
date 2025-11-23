@@ -24,31 +24,29 @@ struct ExpenseListView: View {
     
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    // Title
-                    HStack {
-                        Text("Expenses")
-                            .font(.largeTitle)
-                            .fontWeight(.bold)
-                        Spacer()
-                    }
+            VStack(spacing: 0) {
+                // Title
+                HStack {
+                    Text("Expenses")
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
+                    Spacer()
+                }
+                .padding(.horizontal)
+                .padding(.top, 10)
+
+                // Quick Actions (Add Expense & Report)
+                quickActionsSection
                     .padding(.horizontal)
                     .padding(.top, 10)
 
-                    // Quick Actions (Add Expense & Report)
-                    quickActionsSection
-                        .padding(.horizontal)
-
-                    // Content
-                    if filteredExpenses.isEmpty {
-                        emptyStateView
-                    } else {
-                        expenseListView
-                    }
+                // Content
+                if filteredExpenses.isEmpty {
+                    emptyStateView
+                } else {
+                    expenseListView
                 }
             }
-            .background(Color(.systemGroupedBackground))
             .navigationBarHidden(true)
             .searchable(text: $searchText, prompt: "Search expenses...")
             .sheet(isPresented: $showingAddExpense) {
@@ -139,40 +137,22 @@ struct ExpenseListView: View {
     }
 
     private var expenseListView: some View {
-        VStack(spacing: 15) {
+        List {
             ForEach(sortedDays, id: \.self) { day in
-                VStack(alignment: .leading, spacing: 0) {
-                    // Day Header
-                    Text(dayHeaderText(for: day))
-                        .font(.headline)
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
-                        .padding(.bottom, 8)
-
-                    // Expenses for this day
-                    VStack(spacing: 0) {
-                        ForEach(expensesGroupedByDay[day] ?? []) { expense in
-                            NavigationLink {
-                                EditExpenseView(expense: expense)
-                            } label: {
-                                ExpenseRowView(expense: expense)
-                                    .padding(.horizontal, 16)
-                            }
-
-                            if expense.id != (expensesGroupedByDay[day] ?? []).last?.id {
-                                Divider()
-                                    .padding(.leading, 80)
-                            }
+                Section(header: Text(dayHeaderText(for: day)).font(.headline)) {
+                    ForEach(expensesGroupedByDay[day] ?? []) { expense in
+                        NavigationLink {
+                            EditExpenseView(expense: expense)
+                        } label: {
+                            ExpenseRowView(expense: expense)
                         }
                     }
-                    .background(Color(.secondarySystemBackground))
-                    .cornerRadius(15)
-                    .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+                    .onDelete { indexSet in
+                        deleteExpenses(at: indexSet, on: day)
+                    }
                 }
-                .padding(.horizontal)
             }
         }
-        .padding(.bottom, 20)
     }
     
     private var emptyStateView: some View {
