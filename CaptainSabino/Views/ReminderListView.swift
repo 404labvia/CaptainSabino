@@ -63,22 +63,23 @@ struct ReminderListView: View {
     private var reminderListView: some View {
         VStack(spacing: 20) {
             if !activeReminders.isEmpty {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 0) {
                     Text("Active")
                         .font(.headline)
-                        .padding(.horizontal)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        .padding(.bottom, 8)
 
                     VStack(spacing: 0) {
                         ForEach(activeReminders) { reminder in
                             ReminderRowView(reminder: reminder, onToggleComplete: {
                                 toggleCompletion(for: reminder)
                             })
-                            .padding(.horizontal)
-                            .padding(.vertical, 8)
+                            .padding(.horizontal, 16)
 
                             if reminder.id != activeReminders.last?.id {
                                 Divider()
-                                    .padding(.leading, 60)
+                                    .padding(.leading, 55)
                             }
                         }
                     }
@@ -90,22 +91,23 @@ struct ReminderListView: View {
             }
 
             if !completedReminders.isEmpty {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 0) {
                     Text("Completed")
                         .font(.headline)
-                        .padding(.horizontal)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        .padding(.bottom, 8)
 
                     VStack(spacing: 0) {
                         ForEach(completedReminders) { reminder in
                             ReminderRowView(reminder: reminder, onToggleComplete: {
                                 toggleCompletion(for: reminder)
                             })
-                            .padding(.horizontal)
-                            .padding(.vertical, 8)
+                            .padding(.horizontal, 16)
 
                             if reminder.id != completedReminders.last?.id {
                                 Divider()
-                                    .padding(.leading, 60)
+                                    .padding(.leading, 55)
                             }
                         }
                     }

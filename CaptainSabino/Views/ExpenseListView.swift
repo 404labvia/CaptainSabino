@@ -141,12 +141,13 @@ struct ExpenseListView: View {
     private var expenseListView: some View {
         VStack(spacing: 15) {
             ForEach(sortedDays, id: \.self) { day in
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 0) {
                     // Day Header
                     Text(dayHeaderText(for: day))
                         .font(.headline)
-                        .padding(.horizontal)
-                        .padding(.top, 5)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        .padding(.bottom, 8)
 
                     // Expenses for this day
                     VStack(spacing: 0) {
@@ -155,8 +156,7 @@ struct ExpenseListView: View {
                                 EditExpenseView(expense: expense)
                             } label: {
                                 ExpenseRowView(expense: expense)
-                                    .padding(.horizontal)
-                                    .padding(.vertical, 8)
+                                    .padding(.horizontal, 16)
                             }
 
                             if expense.id != (expensesGroupedByDay[day] ?? []).last?.id {
