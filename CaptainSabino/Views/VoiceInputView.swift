@@ -17,9 +17,9 @@ struct VoiceInputView: View {
 
     @StateObject private var voiceService = VoiceInputService.shared
 
-    @State private var showingAddExpense = false
-    @State private var parsedAmount: Double?
-    @State private var parsedCategory: Category?
+    // Callback to pass parsed data to parent
+    var onExpenseParsed: ((Double?, Category?) -> Void)?
+
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @State private var authorizationRequested = false
@@ -66,16 +66,13 @@ struct VoiceInputView: View {
             .onAppear {
                 requestAuthorizationIfNeeded()
             }
+            .onDisappear {
+                resetVoiceInput()
+            }
             .alert("Error", isPresented: $showingAlert) {
                 Button("OK") {}
             } message: {
                 Text(alertMessage)
-            }
-            .sheet(isPresented: $showingAddExpense) {
-                AddExpenseView(
-                    prefilledAmount: parsedAmount,
-                    prefilledCategory: parsedCategory
-                )
             }
         }
     }
@@ -215,22 +212,26 @@ struct VoiceInputView: View {
         let (amount, categoryName) = voiceService.parseExpenseFromText(text)
 
         // Find category by name
+        let parsedCategory: Category?
         if let categoryName = categoryName {
             parsedCategory = categories.first { $0.name == categoryName }
         } else {
             parsedCategory = nil
         }
 
-        // Set amount
-        parsedAmount = amount
+        // Pass data to parent via callback
+        onExpenseParsed?(amount, parsedCategory)
 
-        // Open AddExpenseView with pre-filled data
-        showingAddExpense = true
+        // Dismiss current view
+        dismiss()
+    }
 
-        // Dismiss current view after a brief delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            dismiss()
+    private func resetVoiceInput() {
+        // Reset voice service state when view disappears
+        if voiceService.isRecording {
+            voiceService.stopRecording()
         }
+        voiceService.transcribedText = ""
     }
 
     private func showAlert(_ message: String) {

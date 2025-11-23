@@ -20,6 +20,8 @@ struct ContentView: View {
     @State private var showingAddExpense = false
     @State private var showingVoiceInput = false
     @State private var showingAddReminder = false
+    @State private var voiceParsedAmount: Double?
+    @State private var voiceParsedCategory: Category?
 
     // MARK: - Body
 
@@ -90,16 +92,29 @@ struct ContentView: View {
                     }
                 }
                 .sheet(isPresented: $showingAddExpense) {
-                    AddExpenseView()
+                    AddExpenseView(
+                        prefilledAmount: voiceParsedAmount,
+                        prefilledCategory: voiceParsedCategory
+                    )
                 }
                 .sheet(isPresented: $showingVoiceInput) {
-                    VoiceInputView()
+                    VoiceInputView { amount, category in
+                        // Save parsed data
+                        voiceParsedAmount = amount
+                        voiceParsedCategory = category
+
+                        // Open AddExpenseView with parsed data
+                        showingAddExpense = true
+                    }
                 }
                 .sheet(isPresented: $showingAddReminder) {
                     AddReminderView()
                 }
                 .confirmationDialog("Add New Expense", isPresented: $showingAddMenu) {
                     Button("Manual Entry") {
+                        // Reset voice parsed data for manual entry
+                        voiceParsedAmount = nil
+                        voiceParsedCategory = nil
                         showingAddExpense = true
                     }
 
