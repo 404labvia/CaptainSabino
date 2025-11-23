@@ -65,6 +65,12 @@ struct VoiceInputView: View {
             }
             .onAppear {
                 requestAuthorizationIfNeeded()
+                // Auto-start recording after a brief delay
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    if !voiceService.isRecording && voiceService.checkAuthorization() {
+                        startRecording()
+                    }
+                }
             }
             .onDisappear {
                 resetVoiceInput()
