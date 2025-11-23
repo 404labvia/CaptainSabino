@@ -177,16 +177,16 @@ class VoiceInputService: ObservableObject {
     private func extractCategory(from text: String) -> String? {
         // Mapping parole chiave → categoria
         let categoryKeywords: [(keywords: [String], category: String)] = [
-            (["cibo", "food", "ristorante", "mangiare", "pranzo", "cena", "colazione"], "Food"),
-            (["carburante", "fuel", "benzina", "gasolio", "diesel"], "Fuel"),
-            (["farmacia", "pharmacy", "medicine", "medicinale"], "Pharmacy"),
-            (["equipaggio", "crew", "marinaio"], "Crew"),
-            (["chandlery", "attrezzatura", "ricambi"], "Chandlery"),
-            (["water test", "test acqua", "analisi acqua"], "Water Test"),
-            (["saldatura", "welder", "saldatore"], "Welder"),
-            (["tender fuel", "carburante tender"], "Tender Fuel"),
-            (["volo", "fly", "aereo", "biglietto"], "Fly"),
-            (["supermercato", "supermarket", "spesa", "grocery"], "Supermarket")
+            (["cibo", "food", "ristorante", "mangiare", "pranzo", "cena", "colazione", "bar"], "Food"),
+            (["carburante", "fuel", "benzina", "gasolio", "diesel", "rifornimento"], "Fuel"),
+            (["farmacia", "pharmacy", "medicine", "medicinale", "medicina"], "Pharmacy"),
+            (["equipaggio", "crew", "marinaio", "marinai"], "Crew"),
+            (["chandlery", "attrezzatura", "ricambi", "ferramenta", "nautica"], "Chandlery"),
+            (["water test", "test acqua", "analisi acqua", "test dell'acqua"], "Water Test"),
+            (["saldatura", "welder", "saldatore", "saldare"], "Welder"),
+            (["tender fuel", "carburante tender", "benzina tender"], "Tender Fuel"),
+            (["volo", "fly", "aereo", "biglietto", "voli"], "Fly"),
+            (["supermercato", "supermarket", "spesa", "grocery", "shopping"], "Supermarket")
         ]
 
         for item in categoryKeywords {

@@ -22,6 +22,7 @@ struct ContentView: View {
     @State private var showingAddReminder = false
     @State private var voiceParsedAmount: Double?
     @State private var voiceParsedCategory: Category?
+    @State private var selectedTab = 0
 
     // MARK: - Body
 
@@ -31,24 +32,27 @@ struct ContentView: View {
                 OnboardingView()
             } else {
                 ZStack {
-                    TabView {
-                        // Tab 1: Dashboard
+                    TabView(selection: $selectedTab) {
+                        // Tab 0: Dashboard
                         DashboardView()
                             .tabItem {
                                 Label("Dashboard", systemImage: "chart.pie")
                             }
+                            .tag(0)
 
-                        // Tab 2: Expenses List
+                        // Tab 1: Expenses List
                         ExpenseListView()
                             .tabItem {
                                 Label("Expenses", systemImage: "list.bullet")
                             }
+                            .tag(1)
 
                         // Placeholder for center button
                         Color.clear
                             .tabItem {
                                 Label("", systemImage: "")
                             }
+                            .tag(2)
 
                         // Tab 3: Reminders
                         Group {
@@ -62,12 +66,14 @@ struct ContentView: View {
                         .tabItem {
                             Label("Reminders", systemImage: "bell")
                         }
+                        .tag(3)
 
                         // Tab 4: Settings
                         SettingsView()
                             .tabItem {
                                 Label("Settings", systemImage: "gearshape")
                             }
+                            .tag(4)
                     }
 
                     // Floating Add Button positioned at tab bar level
@@ -75,7 +81,7 @@ struct ContentView: View {
                         Spacer()
 
                         Button {
-                            showingAddMenu.toggle()
+                            handleAddButtonTap()
                         } label: {
                             ZStack {
                                 Circle()
@@ -279,6 +285,17 @@ struct ContentView: View {
             } else {
                 print("⚠️ Notification permissions denied")
             }
+        }
+    }
+
+    /// Gestisce il tap sul pulsante + in base alla tab selezionata
+    private func handleAddButtonTap() {
+        if selectedTab == 3 {
+            // Tab Reminders: apre direttamente Add Reminder
+            showingAddReminder = true
+        } else {
+            // Altre tab: mostra il menu per aggiungere expense
+            showingAddMenu = true
         }
     }
 }

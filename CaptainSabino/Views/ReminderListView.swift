@@ -20,23 +20,28 @@ struct ReminderListView: View {
     
     var body: some View {
         NavigationStack {
-            ZStack {
-                if reminders.isEmpty {
-                    emptyStateView
-                } else {
-                    reminderListView
-                }
-            }
-            .navigationTitle("Reminders")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showingAddReminder.toggle()
-                    } label: {
-                        Image(systemName: "plus")
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Title
+                    HStack {
+                        Text("Reminders")
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
+                        Spacer()
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 10)
+
+                    // Content
+                    if reminders.isEmpty {
+                        emptyStateView
+                    } else {
+                        reminderListView
                     }
                 }
             }
+            .background(Color(.systemGroupedBackground))
+            .navigationBarHidden(true)
             .sheet(isPresented: $showingAddReminder) {
                 AddReminderView()
             }
@@ -56,29 +61,62 @@ struct ReminderListView: View {
     // MARK: - View Components
     
     private var reminderListView: some View {
-        List {
+        VStack(spacing: 20) {
             if !activeReminders.isEmpty {
-                Section("Active") {
-                    ForEach(activeReminders) { reminder in
-                        ReminderRowView(reminder: reminder, onToggleComplete: {
-                            toggleCompletion(for: reminder)
-                        })
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Active")
+                        .font(.headline)
+                        .padding(.horizontal)
+
+                    VStack(spacing: 0) {
+                        ForEach(activeReminders) { reminder in
+                            ReminderRowView(reminder: reminder, onToggleComplete: {
+                                toggleCompletion(for: reminder)
+                            })
+                            .padding(.horizontal)
+                            .padding(.vertical, 8)
+
+                            if reminder.id != activeReminders.last?.id {
+                                Divider()
+                                    .padding(.leading, 60)
+                            }
+                        }
                     }
-                    .onDelete(perform: deleteActiveReminders)
+                    .background(Color(.secondarySystemBackground))
+                    .cornerRadius(15)
+                    .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
                 }
+                .padding(.horizontal)
             }
 
             if !completedReminders.isEmpty {
-                Section("Completed") {
-                    ForEach(completedReminders) { reminder in
-                        ReminderRowView(reminder: reminder, onToggleComplete: {
-                            toggleCompletion(for: reminder)
-                        })
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Completed")
+                        .font(.headline)
+                        .padding(.horizontal)
+
+                    VStack(spacing: 0) {
+                        ForEach(completedReminders) { reminder in
+                            ReminderRowView(reminder: reminder, onToggleComplete: {
+                                toggleCompletion(for: reminder)
+                            })
+                            .padding(.horizontal)
+                            .padding(.vertical, 8)
+
+                            if reminder.id != completedReminders.last?.id {
+                                Divider()
+                                    .padding(.leading, 60)
+                            }
+                        }
                     }
-                    .onDelete(perform: deleteCompletedReminders)
+                    .background(Color(.secondarySystemBackground))
+                    .cornerRadius(15)
+                    .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
                 }
+                .padding(.horizontal)
             }
         }
+        .padding(.bottom, 20)
     }
     
     private var emptyStateView: some View {

@@ -41,6 +41,7 @@ struct DashboardView: View {
                 }
                 .padding()
             }
+            .background(Color(.systemGroupedBackground))
             .navigationBarHidden(true)
         }
     }

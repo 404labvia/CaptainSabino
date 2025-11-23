@@ -24,32 +24,33 @@ struct ExpenseListView: View {
     
     var body: some View {
         NavigationStack {
-            ZStack {
-                if filteredExpenses.isEmpty {
-                    emptyStateView
-                } else {
-                    expenseListView
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Title
+                    HStack {
+                        Text("Expenses")
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
+                        Spacer()
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 10)
+
+                    // Quick Actions (Add Expense & Report)
+                    quickActionsSection
+                        .padding(.horizontal)
+
+                    // Content
+                    if filteredExpenses.isEmpty {
+                        emptyStateView
+                    } else {
+                        expenseListView
+                    }
                 }
             }
-            .navigationTitle("Expenses")
+            .background(Color(.systemGroupedBackground))
+            .navigationBarHidden(true)
             .searchable(text: $searchText, prompt: "Search expenses...")
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        showingFilterSheet.toggle()
-                    } label: {
-                        Image(systemName: selectedCategory == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
-                    }
-                }
-                
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showingAddExpense.toggle()
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                }
-            }
             .sheet(isPresented: $showingAddExpense) {
                 AddExpenseView()
             }
@@ -81,24 +82,97 @@ struct ExpenseListView: View {
     }
     
     // MARK: - View Components
-    
-    private var expenseListView: some View {
-        List {
-            ForEach(sortedDays, id: \.self) { day in
-                Section(header: Text(dayHeaderText(for: day)).font(.headline)) {
-                    ForEach(expensesGroupedByDay[day] ?? []) { expense in
-                        NavigationLink {
-                            EditExpenseView(expense: expense)
-                        } label: {
-                            ExpenseRowView(expense: expense)
-                        }
-                    }
-                    .onDelete { indexSet in
-                        deleteExpenses(at: indexSet, on: day)
-                    }
+
+    private var quickActionsSection: some View {
+        HStack(spacing: 12) {
+            // Add Expense Button
+            Button {
+                showingAddExpense = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.title3)
+                    Text("Add Expense")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
                 }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(Color.blue)
+                .foregroundStyle(.white)
+                .cornerRadius(12)
+                .shadow(color: .black.opacity(0.2), radius: 6, x: 0, y: 3)
+            }
+
+            // Report Button
+            NavigationLink {
+                ReportView()
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "doc.text")
+                        .font(.title3)
+                    Text("Report")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(Color.green)
+                .foregroundStyle(.white)
+                .cornerRadius(12)
+                .shadow(color: .black.opacity(0.2), radius: 6, x: 0, y: 3)
+            }
+
+            // Filter Button
+            Button {
+                showingFilterSheet = true
+            } label: {
+                Image(systemName: selectedCategory == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+                    .font(.title2)
+                    .frame(width: 50, height: 50)
+                    .background(Color(.secondarySystemBackground))
+                    .foregroundStyle(.blue)
+                    .cornerRadius(12)
+                    .shadow(color: .black.opacity(0.2), radius: 6, x: 0, y: 3)
             }
         }
+    }
+
+    private var expenseListView: some View {
+        VStack(spacing: 15) {
+            ForEach(sortedDays, id: \.self) { day in
+                VStack(alignment: .leading, spacing: 12) {
+                    // Day Header
+                    Text(dayHeaderText(for: day))
+                        .font(.headline)
+                        .padding(.horizontal)
+                        .padding(.top, 5)
+
+                    // Expenses for this day
+                    VStack(spacing: 0) {
+                        ForEach(expensesGroupedByDay[day] ?? []) { expense in
+                            NavigationLink {
+                                EditExpenseView(expense: expense)
+                            } label: {
+                                ExpenseRowView(expense: expense)
+                                    .padding(.horizontal)
+                                    .padding(.vertical, 8)
+                            }
+
+                            if expense.id != (expensesGroupedByDay[day] ?? []).last?.id {
+                                Divider()
+                                    .padding(.leading, 80)
+                            }
+                        }
+                    }
+                    .background(Color(.secondarySystemBackground))
+                    .cornerRadius(15)
+                    .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+                }
+                .padding(.horizontal)
+            }
+        }
+        .padding(.bottom, 20)
     }
     
     private var emptyStateView: some View {
