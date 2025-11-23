@@ -121,6 +121,11 @@ extension Category {
                 name: "Fly",
                 icon: "airplane",
                 color: "#00BCD4"  // Celeste
+            ),
+            Category(
+                name: "Supermarket",
+                icon: "bag",
+                color: "#8BC34A"  // Verde lime
             )
         ]
     }

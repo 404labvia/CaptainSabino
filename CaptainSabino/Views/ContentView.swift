@@ -176,7 +176,7 @@ struct ContentView: View {
 
     /// Aggiorna i colori delle categorie esistenti con i nuovi colori e aggiunge nuove categorie
     private func updateCategoryColorsIfNeeded() {
-        let hasUpdatedCategories = UserDefaults.standard.bool(forKey: "hasUpdatedCategories_v4")
+        let hasUpdatedCategories = UserDefaults.standard.bool(forKey: "hasUpdatedCategories_v5")
 
         guard !hasUpdatedCategories else { return }
 
@@ -190,7 +190,8 @@ struct ContentView: View {
             "Water Test": "#03A9F4",  // Azzurro
             "Welder": "#FF6F00",      // Arancione scuro
             "Tender Fuel": "#607D8B", // Grigio-blu
-            "Fly": "#00BCD4"          // Celeste
+            "Fly": "#00BCD4",         // Celeste
+            "Supermarket": "#8BC34A"  // Verde lime
         ]
 
         // Aggiorna i colori delle categorie esistenti
@@ -221,7 +222,8 @@ struct ContentView: View {
             ("Water Test", "drop.triangle", "#03A9F4"),
             ("Welder", "flame", "#FF6F00"),
             ("Tender Fuel", "fuelpump.fill", "#607D8B"),
-            ("Fly", "airplane", "#00BCD4")
+            ("Fly", "airplane", "#00BCD4"),
+            ("Supermarket", "bag", "#8BC34A")
         ]
 
         for newCat in newCategories {
@@ -234,7 +236,7 @@ struct ContentView: View {
         try? modelContext.save()
 
         // Salva il flag per non ripetere l'aggiornamento
-        UserDefaults.standard.set(true, forKey: "hasUpdatedCategories_v4")
+        UserDefaults.standard.set(true, forKey: "hasUpdatedCategories_v5")
     }
 
     /// Richiede i permessi per le notifiche all'avvio dell'app

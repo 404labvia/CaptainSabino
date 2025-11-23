@@ -185,7 +185,8 @@ class VoiceInputService: ObservableObject {
             (["water test", "test acqua", "analisi acqua"], "Water Test"),
             (["saldatura", "welder", "saldatore"], "Welder"),
             (["tender fuel", "carburante tender"], "Tender Fuel"),
-            (["volo", "fly", "aereo", "biglietto"], "Fly")
+            (["volo", "fly", "aereo", "biglietto"], "Fly"),
+            (["supermercato", "supermarket", "spesa", "grocery"], "Supermarket")
         ]
 
         for item in categoryKeywords {
