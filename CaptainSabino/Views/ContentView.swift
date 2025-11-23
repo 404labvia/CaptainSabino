@@ -163,14 +163,46 @@ struct ContentView: View {
                 modelContext.insert(category)
             }
 
-            // Crea settings vuoto
-            let newSettings = YachtSettings()
-            modelContext.insert(newSettings)
-
             try? modelContext.save()
         } else {
             // Update existing category colors (migration)
             updateCategoryColorsIfNeeded()
+        }
+
+        // Verifica e pulisci settings corrotti o duplicati
+        cleanupSettingsIfNeeded()
+    }
+
+    /// Pulisce settings duplicati o corrotti dal database
+    private func cleanupSettingsIfNeeded() {
+        // Se ci sono più settings, teniamo solo il primo completo o l'ultimo
+        if settings.count > 1 {
+            print("⚠️ Found \(settings.count) YachtSettings, cleaning up...")
+
+            // Trova il primo settings completo
+            if let completeSettings = settings.first(where: { $0.isComplete }) {
+                // Elimina tutti gli altri
+                for setting in settings where setting.id != completeSettings.id {
+                    modelContext.delete(setting)
+                }
+            } else {
+                // Nessuno è completo, elimina tutti tranne l'ultimo
+                for (index, setting) in settings.enumerated() {
+                    if index < settings.count - 1 {
+                        modelContext.delete(setting)
+                    }
+                }
+            }
+
+            try? modelContext.save()
+        }
+
+        // Se non ci sono settings, crea uno vuoto per l'onboarding
+        if settings.isEmpty {
+            print("ℹ️ Creating empty YachtSettings for onboarding")
+            let newSettings = YachtSettings()
+            modelContext.insert(newSettings)
+            try? modelContext.save()
         }
     }
 

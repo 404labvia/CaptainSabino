@@ -166,23 +166,29 @@ struct OnboardingView: View {
         }
 
         // Save or update settings
-        if let existingSettings = settings.first {
-            existingSettings.yachtName = yachtName
-            existingSettings.ownerEmail = ownerEmail
-            existingSettings.captainName = captainName
-            existingSettings.captainEmail = captainEmail
-            existingSettings.touch()
-        } else {
-            let newSettings = YachtSettings(
-                yachtName: yachtName,
-                ownerEmail: ownerEmail,
-                captainName: captainName,
-                captainEmail: captainEmail
-            )
-            modelContext.insert(newSettings)
-        }
+        do {
+            if let existingSettings = settings.first {
+                existingSettings.yachtName = yachtName
+                existingSettings.ownerEmail = ownerEmail
+                existingSettings.captainName = captainName
+                existingSettings.captainEmail = captainEmail
+                existingSettings.touch()
+            } else {
+                let newSettings = YachtSettings(
+                    yachtName: yachtName,
+                    ownerEmail: ownerEmail,
+                    captainName: captainName,
+                    captainEmail: captainEmail
+                )
+                modelContext.insert(newSettings)
+            }
 
-        try? modelContext.save()
+            try modelContext.save()
+            print("✅ Settings saved successfully")
+        } catch {
+            print("❌ Error saving settings: \(error)")
+            showAlert("Error saving settings: \(error.localizedDescription)")
+        }
     }
     
     private func showAlert(_ message: String) {
