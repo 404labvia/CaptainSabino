@@ -260,7 +260,7 @@ struct ExpenseRowView: View {
             
             // Amount
             Text(expense.formattedAmount)
-                .font(.title3)
+                .font(.body)
                 .fontWeight(.semibold)
                 .foregroundStyle(.primary)
         }

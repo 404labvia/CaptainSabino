@@ -20,7 +20,7 @@ struct ReportView: View {
 
     @State private var isGenerating = false
     @State private var generatedPDFURL: URL?
-    @State private var showingMailView = false
+    @State private var showingShareSheet = false
     @State private var showingAlert = false
     @State private var alertMessage = ""
 
@@ -53,16 +53,9 @@ struct ReportView: View {
         }
         .navigationTitle("Generate Report")
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $showingMailView) {
-            if let url = generatedPDFURL,
-               let yachtSettings = settings.first {
-                MailView(
-                    pdfURL: url,
-                    recipientEmail: yachtSettings.ownerEmail,
-                    subject: "Expense Report - \(monthText)",
-                    yachtName: yachtSettings.yachtName,
-                    captainName: yachtSettings.captainName
-                )
+        .sheet(isPresented: $showingShareSheet) {
+            if let url = generatedPDFURL {
+                ShareSheet(items: [url])
             }
         }
         .alert(isGenerating ? "Generating..." : "Error", isPresented: .constant(isGenerating || showingAlert)) {
@@ -162,7 +155,7 @@ struct ReportView: View {
 
     private var sendButton: some View {
         Button {
-            sendEmail()
+            showingShareSheet = true
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "paperplane.fill")
@@ -274,25 +267,6 @@ struct ReportView: View {
                 }
             }
         }
-    }
-
-    private func sendEmail() {
-        guard let settings = settings.first else {
-            showAlert("Settings not configured")
-            return
-        }
-
-        guard !settings.ownerEmail.isEmpty else {
-            showAlert("Owner email not configured in Settings")
-            return
-        }
-
-        guard EmailService.shared.canSendEmail() else {
-            showAlert("Mail services are not available on this device. Please configure the Mail app.")
-            return
-        }
-
-        showingMailView = true
     }
 
     private func showAlert(_ message: String) {
