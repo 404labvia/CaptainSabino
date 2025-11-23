@@ -176,7 +176,7 @@ struct ContentView: View {
 
     /// Aggiorna i colori delle categorie esistenti con i nuovi colori e aggiunge nuove categorie
     private func updateCategoryColorsIfNeeded() {
-        let hasUpdatedCategories = UserDefaults.standard.bool(forKey: "hasUpdatedCategories_v3")
+        let hasUpdatedCategories = UserDefaults.standard.bool(forKey: "hasUpdatedCategories_v4")
 
         guard !hasUpdatedCategories else { return }
 
@@ -200,6 +200,20 @@ struct ContentView: View {
             }
         }
 
+        // Rimuovi categorie vecchie (Supplies, Maintenance, Mooring)
+        let categoriesToRemove = ["Supplies", "Maintenance", "Mooring"]
+        for category in categories where category.isPredefined {
+            if categoriesToRemove.contains(category.name) {
+                // Se la categoria ha spese, non la cancelliamo ma la rendiamo custom
+                if let expenses = category.expenses, !expenses.isEmpty {
+                    category.isPredefined = false
+                } else {
+                    // Nessuna spesa, possiamo cancellare
+                    modelContext.delete(category)
+                }
+            }
+        }
+
         // Aggiungi nuove categorie se non esistono
         let existingCategoryNames = Set(categories.map { $0.name })
         let newCategories: [(name: String, icon: String, color: String)] = [
@@ -220,7 +234,7 @@ struct ContentView: View {
         try? modelContext.save()
 
         // Salva il flag per non ripetere l'aggiornamento
-        UserDefaults.standard.set(true, forKey: "hasUpdatedCategories_v3")
+        UserDefaults.standard.set(true, forKey: "hasUpdatedCategories_v4")
     }
 
     /// Richiede i permessi per le notifiche all'avvio dell'app
