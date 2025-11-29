@@ -178,13 +178,16 @@ struct OnboardingView: View {
                     yachtName: yachtName,
                     ownerEmail: ownerEmail,
                     captainName: captainName,
-                    captainEmail: captainEmail
+                    captainEmail: captainEmail,
+                    syncReceiptsToiCloud: false,
+                    claudeAPIKey: nil
                 )
                 modelContext.insert(newSettings)
             }
 
             try modelContext.save()
             print("✅ Settings saved successfully")
+            print("✅ Settings complete: \(settings.first?.isComplete ?? false)")
         } catch {
             print("❌ Error saving settings: \(error)")
             showAlert("Error saving settings: \(error.localizedDescription)")
