@@ -66,28 +66,41 @@ struct SettingsView: View {
     private var receiptScanningSection: some View {
         Section {
             if let settings = yachtSettings {
-                Toggle("Sync receipts to iCloud", isOn: Binding(
-                    get: { settings.syncReceiptsToiCloud },
-                    set: { newValue in
-                        settings.syncReceiptsToiCloud = newValue
-                        settings.touch()
-                        try? modelContext.save()
+                // Check if iCloud is available
+                let isICloudAvailable = FileManager.default.ubiquityIdentityToken != nil
 
-                        // Migra foto se necessario
-                        if newValue {
-                            ReceiptStorageService.shared.migrateReceipts(toICloud: true)
-                        } else {
-                            ReceiptStorageService.shared.migrateReceipts(toICloud: false)
+                if isICloudAvailable {
+                    Toggle("Sync receipts to iCloud", isOn: Binding(
+                        get: { settings.syncReceiptsToiCloud },
+                        set: { newValue in
+                            settings.syncReceiptsToiCloud = newValue
+                            settings.touch()
+                            try? modelContext.save()
+
+                            // Migra foto se necessario
+                            if newValue {
+                                ReceiptStorageService.shared.migrateReceipts(toICloud: true)
+                            } else {
+                                ReceiptStorageService.shared.migrateReceipts(toICloud: false)
+                            }
                         }
-                    }
-                ))
+                    ))
+                } else {
+                    // iCloud non disponibile - mostra info
+                    Label("iCloud Drive not available", systemImage: "icloud.slash")
+                        .foregroundColor(.secondary)
+                        .font(.subheadline)
+                }
 
                 // Storage usage
                 let localStorage = ReceiptStorageService.shared.getStorageUsed(useICloud: false)
-                let iCloudStorage = ReceiptStorageService.shared.getStorageUsed(useICloud: true)
 
                 LabeledContent("Local storage", value: localStorage.formattedByteSize)
-                LabeledContent("iCloud storage", value: iCloudStorage.formattedByteSize)
+
+                if isICloudAvailable {
+                    let iCloudStorage = ReceiptStorageService.shared.getStorageUsed(useICloud: true)
+                    LabeledContent("iCloud storage", value: iCloudStorage.formattedByteSize)
+                }
 
             } else {
                 Text("No settings configured")
@@ -96,7 +109,11 @@ struct SettingsView: View {
         } header: {
             Text("Receipt Scanning")
         } footer: {
-            Text("Enable iCloud sync to access receipt photos across all your devices")
+            if FileManager.default.ubiquityIdentityToken != nil {
+                Text("Enable iCloud sync to access receipt photos across all your devices")
+            } else {
+                Text("Receipt photos are saved locally on this device. iCloud sync requires Apple Developer Program.")
+            }
         }
     }
 
