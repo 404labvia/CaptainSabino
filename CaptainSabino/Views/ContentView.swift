@@ -20,8 +20,11 @@ struct ContentView: View {
     @State private var showingAddExpense = false
     @State private var showingVoiceInput = false
     @State private var showingAddReminder = false
+    @State private var showingCameraReceipt = false
+    @State private var isProcessingReceipt = false
     @State private var voiceParsedAmount: Double?
     @State private var voiceParsedCategory: Category?
+    @State private var capturedReceiptImage: UIImage?
     @State private var selectedTab = 0
 
     // MARK: - Body
@@ -100,7 +103,8 @@ struct ContentView: View {
                 .sheet(isPresented: $showingAddExpense) {
                     AddExpenseView(
                         prefilledAmount: voiceParsedAmount,
-                        prefilledCategory: voiceParsedCategory
+                        prefilledCategory: voiceParsedCategory,
+                        receiptImage: capturedReceiptImage
                     )
                 }
                 .sheet(isPresented: $showingVoiceInput) {
@@ -116,16 +120,55 @@ struct ContentView: View {
                 .sheet(isPresented: $showingAddReminder) {
                     AddReminderView()
                 }
+                .sheet(isPresented: $showingCameraReceipt) {
+                    CameraReceiptView { capturedImage in
+                        // Start processing receipt
+                        isProcessingReceipt = true
+                        capturedReceiptImage = capturedImage
+
+                        Task {
+                            await processReceiptWithOCR(image: capturedImage)
+                        }
+                    }
+                }
+                .overlay {
+                    if isProcessingReceipt {
+                        ZStack {
+                            Color.black.opacity(0.4)
+                                .ignoresSafeArea()
+
+                            VStack(spacing: 16) {
+                                ProgressView()
+                                    .scaleEffect(1.5)
+                                    .tint(.white)
+
+                                Text("Processing receipt...")
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                            }
+                            .padding(32)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(.ultraThinMaterial)
+                            )
+                        }
+                    }
+                }
                 .confirmationDialog("Add New Expense", isPresented: $showingAddMenu) {
                     Button("Manual Entry") {
                         // Reset voice parsed data for manual entry
                         voiceParsedAmount = nil
                         voiceParsedCategory = nil
+                        capturedReceiptImage = nil
                         showingAddExpense = true
                     }
 
                     Button("Voice Input") {
                         showingVoiceInput = true
+                    }
+
+                    Button("📸 Scan Receipt") {
+                        showingCameraReceipt = true
                     }
 
                     Button("Cancel", role: .cancel) {}
@@ -296,6 +339,36 @@ struct ContentView: View {
         } else {
             // Altre tab: mostra il menu per aggiungere expense
             showingAddMenu = true
+        }
+    }
+
+    /// Processa lo scontrino con OCR
+    private func processReceiptWithOCR(image: UIImage) async {
+        // Get Claude API key from settings (se configurato)
+        let claudeAPIKey = settings.first?.claudeAPIKey
+
+        // Process with OCR service
+        let receiptData = await ReceiptOCRService.shared.processReceipt(
+            image: image,
+            claudeAPIKey: claudeAPIKey
+        )
+
+        // Find category in database by name
+        var matchedCategory: Category?
+        if let categoryName = receiptData.categoryName {
+            matchedCategory = categories.first { $0.name == categoryName }
+        }
+
+        // Prepare data for AddExpenseView
+        await MainActor.run {
+            voiceParsedAmount = receiptData.amount
+            voiceParsedCategory = matchedCategory
+
+            // Hide processing overlay
+            isProcessingReceipt = false
+
+            // Open AddExpenseView with parsed data
+            showingAddExpense = true
         }
     }
 }

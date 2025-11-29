@@ -26,7 +26,10 @@ final class Expense {
     
     /// Note opzionali per la spesa (es: "Rifornimento Porto di Monaco")
     var notes: String
-    
+
+    /// Percorso relativo dell'immagine dello scontrino (se presente)
+    var receiptImagePath: String?
+
     /// Data di creazione del record
     var createdAt: Date
     
@@ -38,17 +41,20 @@ final class Expense {
     ///   - category: Categoria della spesa
     ///   - date: Data della spesa (default: oggi)
     ///   - notes: Note opzionali (default: stringa vuota)
+    ///   - receiptImagePath: Percorso immagine scontrino (default: nil)
     init(
         amount: Double,
         category: Category?,
         date: Date = Date(),
-        notes: String = ""
+        notes: String = "",
+        receiptImagePath: String? = nil
     ) {
         self.id = UUID()
         self.amount = amount
         self.category = category
         self.date = date
         self.notes = notes
+        self.receiptImagePath = receiptImagePath
         self.createdAt = Date()
     }
     

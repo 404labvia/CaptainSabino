@@ -8,5 +8,9 @@
 	<string>CaptainSabino needs speech recognition to allow you to add expenses by voice.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>CaptainSabino needs microphone access to record your voice for expense input.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>CaptainSabino needs camera access to scan receipt photos for quick expense entry.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>CaptainSabino can save receipt photos to your library for your records.</string>
 </dict>
 </plist>

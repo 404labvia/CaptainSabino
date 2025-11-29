@@ -257,7 +257,15 @@ struct ExpenseRowView: View {
             }
             
             Spacer()
-            
+
+            // Receipt photo indicator
+            if expense.receiptImagePath != nil {
+                Image(systemName: "camera.fill")
+                    .font(.caption)
+                    .foregroundColor(.blue)
+                    .padding(.trailing, 4)
+            }
+
             // Amount
             Text(expense.formattedAmount)
                 .font(.body)

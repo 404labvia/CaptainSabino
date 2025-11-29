@@ -33,6 +33,12 @@ final class YachtSettings {
     /// Data ultimo aggiornamento
     var updatedAt: Date
 
+    /// Sincronizza foto scontrini su iCloud Drive
+    var syncReceiptsToiCloud: Bool
+
+    /// Chiave API Claude (opzionale, per OCR avanzato)
+    var claudeAPIKey: String?
+
     // MARK: - Initializer
 
     /// Inizializzatore per creare le impostazioni
@@ -41,17 +47,23 @@ final class YachtSettings {
     ///   - ownerEmail: Email armatore (destinatario)
     ///   - captainName: Nome comandante
     ///   - captainEmail: Email comandante (mittente)
+    ///   - syncReceiptsToiCloud: Sincronizza scontrini su iCloud (default: false)
+    ///   - claudeAPIKey: Chiave API Claude opzionale (default: nil)
     init(
         yachtName: String = "",
         ownerEmail: String = "",
         captainName: String = "",
-        captainEmail: String = ""
+        captainEmail: String = "",
+        syncReceiptsToiCloud: Bool = false,
+        claudeAPIKey: String? = nil
     ) {
         self.id = UUID()
         self.yachtName = yachtName
         self.ownerEmail = ownerEmail
         self.captainName = captainName
         self.captainEmail = captainEmail
+        self.syncReceiptsToiCloud = syncReceiptsToiCloud
+        self.claudeAPIKey = claudeAPIKey
         self.createdAt = Date()
         self.updatedAt = Date()
     }

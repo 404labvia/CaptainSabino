@@ -28,6 +28,9 @@ struct SettingsView: View {
                 // Yacht Info Section
                 yachtInfoSection
 
+                // Receipt Scanning Section
+                receiptScanningSection
+
                 // App Info Section
                 appInfoSection
             }
@@ -60,15 +63,52 @@ struct SettingsView: View {
         }
     }
 
+    private var receiptScanningSection: some View {
+        Section {
+            if let settings = yachtSettings {
+                Toggle("Sync receipts to iCloud", isOn: Binding(
+                    get: { settings.syncReceiptsToiCloud },
+                    set: { newValue in
+                        settings.syncReceiptsToiCloud = newValue
+                        settings.touch()
+                        try? modelContext.save()
+
+                        // Migra foto se necessario
+                        if newValue {
+                            ReceiptStorageService.shared.migrateReceipts(toICloud: true)
+                        } else {
+                            ReceiptStorageService.shared.migrateReceipts(toICloud: false)
+                        }
+                    }
+                ))
+
+                // Storage usage
+                let localStorage = ReceiptStorageService.shared.getStorageUsed(useICloud: false)
+                let iCloudStorage = ReceiptStorageService.shared.getStorageUsed(useICloud: true)
+
+                LabeledContent("Local storage", value: localStorage.formattedByteSize)
+                LabeledContent("iCloud storage", value: iCloudStorage.formattedByteSize)
+
+            } else {
+                Text("No settings configured")
+                    .foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("Receipt Scanning")
+        } footer: {
+            Text("Enable iCloud sync to access receipt photos across all your devices")
+        }
+    }
+
     private var appInfoSection: some View {
         Section("About") {
             LabeledContent("Version", value: "1.0.0")
             LabeledContent("Build", value: "1")
-            
+
             Link(destination: URL(string: "https://support.apple.com")!) {
                 Label("Support", systemImage: "questionmark.circle")
             }
-            
+
             Link(destination: URL(string: "https://www.apple.com/legal/privacy/")!) {
                 Label("Privacy Policy", systemImage: "hand.raised")
             }
