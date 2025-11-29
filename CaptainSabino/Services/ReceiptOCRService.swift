@@ -229,42 +229,76 @@ class ReceiptOCRService {
     private func extractAmount(from text: String) -> Double? {
         let normalizedText = text.uppercased()
 
-        // Pattern 1: Cerca "TOTALE" / "TOTAL" / "SUMA" + numero
-        let totalPatterns = [
-            "TOTALE[:\\s]*€?\\s*(\\d+[.,]\\d{2})",
-            "TOTAL[E]?[:\\s]*€?\\s*(\\d+[.,]\\d{2})",
-            "SUMA[:\\s]*€?\\s*(\\d+[.,]\\d{2})",
-            "GESAMT[:\\s]*€?\\s*(\\d+[.,]\\d{2})",
-            "SOMME[:\\s]*€?\\s*(\\d+[.,]\\d{2})",
-            "IMPORTO[:\\s]*€?\\s*(\\d+[.,]\\d{2})"
+        // PRIORITÀ 1: Pattern "PAGATO" / "CARTA" / "CONTANTI" (più affidabili!)
+        let paymentPatterns = [
+            "PAGATO[:\\s]*€?\\s*(\\d+[.,]\\d{2})",           // PAGATO 55.51
+            "IMPORTO\\s+PAGATO[:\\s]*€?\\s*(\\d+[.,]\\d{2})", // IMPORTO PAGATO 55.51
+            "PAGAMENTO[:\\s]*€?\\s*(\\d+[.,]\\d{2})",       // PAGAMENTO 55.51
+            "CARTA[:\\s]*€?\\s*(\\d+[.,]\\d{2})",           // CARTA 55.51
+            "CONTANTI[:\\s]*€?\\s*(\\d+[.,]\\d{2})",        // CONTANTI 55.51
+            "BANCOMAT[:\\s]*€?\\s*(\\d+[.,]\\d{2})",        // BANCOMAT 55.51
+            "CASH[:\\s]*€?\\s*(\\d+[.,]\\d{2})",            // CASH 55.51
+            "PAID[:\\s]*€?\\s*(\\d+[.,]\\d{2})"             // PAID 55.51
         ]
 
-        for pattern in totalPatterns {
+        for pattern in paymentPatterns {
             if let amount = extractWithRegex(pattern: pattern, from: normalizedText) {
+                print("✅ Amount trovato con pattern PAGATO: €\(amount)")
                 return amount
             }
         }
 
-        // Pattern 2: Cerca € symbol + numero
-        let euroPattern = "€\\s*(\\d+[.,]\\d{2})"
-        if let amounts = extractAllWithRegex(pattern: euroPattern, from: normalizedText) {
-            // Prendi il numero più grande (probabilmente il totale)
-            return amounts.max()
+        // PRIORITÀ 2: Pattern "TOTALE" (ma NON subtotale!)
+        let totalPatterns = [
+            "(?<!SUB)TOTALE[:\\s]*€?\\s*(\\d+[.,]\\d{2})",  // TOTALE (non SUBTOTALE)
+            "TOT\\.?[:\\s]*€?\\s*(\\d+[.,]\\d{2})",         // TOT. 55.51
+            "TOTAL[E]?[:\\s]*€?\\s*(\\d+[.,]\\d{2})",       // TOTAL / TOTALE
+            "SUMA[:\\s]*€?\\s*(\\d+[.,]\\d{2})",            // SUMA (spagnolo)
+            "GESAMT[:\\s]*€?\\s*(\\d+[.,]\\d{2})",          // GESAMT (tedesco)
+            "SOMME[:\\s]*€?\\s*(\\d+[.,]\\d{2})",           // SOMME (francese)
+        ]
+
+        for pattern in totalPatterns {
+            if let amount = extractWithRegex(pattern: pattern, from: normalizedText) {
+                print("✅ Amount trovato con pattern TOTALE: €\(amount)")
+                return amount
+            }
         }
 
-        // Pattern 3: Cerca numeri con 2 decimali nella parte finale
+        // PRIORITÀ 3: Cerca nelle ultime righe (dove di solito c'è il totale)
         let lines = normalizedText.split(separator: "\n")
-        let lastLines = lines.suffix(5) // Ultime 5 righe
+        let lastLines = Array(lines.suffix(8)) // Ultime 8 righe
 
+        // Cerca pattern "qualsiasi parola seguita da numero" nelle ultime righe
         for line in lastLines.reversed() {
-            let numberPattern = "(\\d+[.,]\\d{2})"
-            if let amount = extractWithRegex(pattern: numberPattern, from: String(line)) {
-                if amount >= minAmount && amount <= maxAmount {
+            // Pattern: parola + numero (es. "EURO 55.51", "SALDO 55.51")
+            let linePattern = "[A-Z]+[:\\s]+€?\\s*(\\d+[.,]\\d{2})"
+            if let amount = extractWithRegex(pattern: linePattern, from: String(line)) {
+                // Escludi se la riga contiene "SUBTOT", "SUB", "IVA", "TAX"
+                let lineStr = String(line)
+                if !lineStr.contains("SUBTOT") &&
+                   !lineStr.contains("SUB") &&
+                   !lineStr.contains("IVA") &&
+                   !lineStr.contains("TAX") &&
+                   !lineStr.contains("VAT") {
+                    print("✅ Amount trovato nelle ultime righe: €\(amount)")
                     return amount
                 }
             }
         }
 
+        // PRIORITÀ 4: Cerca € symbol + numero (prendi il più grande)
+        let euroPattern = "€\\s*(\\d+[.,]\\d{2})"
+        if let amounts = extractAllWithRegex(pattern: euroPattern, from: normalizedText) {
+            // Filtra importi troppo piccoli (probabilmente IVA o singoli articoli)
+            let significantAmounts = amounts.filter { $0 >= 1.00 }
+            if let maxAmount = significantAmounts.max() {
+                print("⚠️ Amount trovato con fallback (max €): €\(maxAmount)")
+                return maxAmount
+            }
+        }
+
+        print("❌ Nessun amount trovato")
         return nil
     }
 
