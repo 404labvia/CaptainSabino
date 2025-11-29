@@ -21,8 +21,8 @@ class ReceiptStorageService {
     // MARK: - Constants
 
     private let receiptsFolder = "Receipts"
-    private let imageQuality: CGFloat = 0.8
-    private let maxImageWidth: CGFloat = 1920 // Ottimizza dimensione senza perdere qualità
+    private let imageQuality: CGFloat = 0.4 // Compressione aggressiva (scontrini = testo)
+    private let maxImageWidth: CGFloat = 1200 // Risoluzione sufficiente per OCR
 
     // MARK: - Directory Management
 

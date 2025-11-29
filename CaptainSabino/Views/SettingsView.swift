@@ -102,6 +102,21 @@ struct SettingsView: View {
                     LabeledContent("iCloud storage", value: iCloudStorage.formattedByteSize)
                 }
 
+                // Claude API Key (opzionale)
+                NavigationLink {
+                    ClaudeAPISettingsView()
+                } label: {
+                    HStack {
+                        Label("Claude API (Optional)", systemImage: "brain")
+                        Spacer()
+                        if let apiKey = settings.claudeAPIKey, !apiKey.isEmpty {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                                .font(.caption)
+                        }
+                    }
+                }
+
             } else {
                 Text("No settings configured")
                     .foregroundStyle(.secondary)
@@ -228,6 +243,81 @@ struct EditSettingsView: View {
     private func showAlert(_ message: String) {
         alertMessage = message
         showingAlert = true
+    }
+}
+
+// MARK: - Claude API Settings View
+
+struct ClaudeAPISettingsView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    @Query private var settings: [YachtSettings]
+
+    @State private var apiKey = ""
+    @State private var showingClearConfirmation = false
+
+    var body: some View {
+        Form {
+            Section {
+                SecureField("sk-ant-api03-...", text: $apiKey)
+                    .textContentType(.password)
+                    .autocapitalization(.none)
+                    .autocorrectionDisabled()
+                    .font(.system(.body, design: .monospaced))
+            } header: {
+                Label("API Key", systemImage: "key")
+            } footer: {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Claude API will be used when Apple Vision OCR has low confidence.")
+                    Text("Get your API key from console.anthropic.com")
+                        .foregroundColor(.blue)
+                }
+            }
+
+            Section("Cost Estimate") {
+                LabeledContent("Per receipt scan", value: "~€0.005")
+                LabeledContent("Estimated yearly", value: "~€5-6")
+            }
+
+            if !apiKey.isEmpty {
+                Section {
+                    Button("Clear API Key", role: .destructive) {
+                        showingClearConfirmation = true
+                    }
+                }
+            }
+        }
+        .navigationTitle("Claude API")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Save") {
+                    saveAPIKey()
+                }
+                .fontWeight(.semibold)
+                .disabled(apiKey.isEmpty)
+            }
+        }
+        .confirmationDialog("Clear API Key?", isPresented: $showingClearConfirmation) {
+            Button("Clear", role: .destructive) {
+                apiKey = ""
+                saveAPIKey()
+            }
+        }
+        .onAppear {
+            if let currentKey = settings.first?.claudeAPIKey {
+                apiKey = currentKey
+            }
+        }
+    }
+
+    private func saveAPIKey() {
+        if let currentSettings = settings.first {
+            currentSettings.claudeAPIKey = apiKey.isEmpty ? nil : apiKey
+            currentSettings.touch()
+            try? modelContext.save()
+        }
+        dismiss()
     }
 }
 
