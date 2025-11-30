@@ -421,6 +421,32 @@ class ReceiptOCRService {
 
     // MARK: - Claude API Integration
 
+    /// Ridimensiona l'immagine per Claude API (max 5 MB)
+    /// - Parameter image: Immagine originale
+    /// - Returns: Immagine ridimensionata
+    private func resizeImageForClaude(_ image: UIImage) -> UIImage {
+        let maxWidth: CGFloat = 1200 // Stessa dimensione di ReceiptStorageService
+        let width = image.size.width
+
+        // Se già piccola abbastanza, ritorna originale
+        if width <= maxWidth {
+            return image
+        }
+
+        // Calcola nuove dimensioni mantenendo aspect ratio
+        let scaleFactor = maxWidth / width
+        let newHeight = image.size.height * scaleFactor
+        let newSize = CGSize(width: maxWidth, height: newHeight)
+
+        // Ridimensiona
+        UIGraphicsBeginImageContextWithOptions(newSize, false, 1.0)
+        image.draw(in: CGRect(origin: .zero, size: newSize))
+        let resizedImage = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+
+        return resizedImage ?? image
+    }
+
     /// Processa scontrino con Claude Vision API
     /// - Parameters:
     ///   - image: Immagine scontrino
@@ -433,7 +459,10 @@ class ReceiptOCRService {
         fallbackText: String
     ) async -> ReceiptData {
 
-        guard let imageData = image.jpegData(compressionQuality: 0.8) else {
+        // Ridimensiona immagine per rispettare limite 5 MB di Claude API
+        let resizedImage = resizeImageForClaude(image)
+
+        guard let imageData = resizedImage.jpegData(compressionQuality: 0.6) else {
             return ReceiptData(
                 amount: nil,
                 categoryName: nil,
@@ -442,6 +471,9 @@ class ReceiptOCRService {
                 ocrSource: .appleVision
             )
         }
+
+        let imageSizeMB = Double(imageData.count) / 1_048_576.0
+        print("📏 Image size for Claude: \(String(format: "%.2f", imageSizeMB)) MB (\(imageData.count) bytes)")
 
         let base64Image = imageData.base64EncodedString()
 
