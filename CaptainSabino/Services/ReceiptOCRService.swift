@@ -463,14 +463,22 @@ class ReceiptOCRService {
                         [
                             "type": "text",
                             "text": """
-                            Extract the TOTAL AMOUNT (in euros) and CATEGORY from this receipt.
+                            Extract the TOTAL PAID AMOUNT (in euros) and CATEGORY from this receipt.
 
-                            Available categories: Supermarket, Fuel, Pharmacy, Food, Crew, Chandlery, Water Test, Welder, Tender Fuel, Fly.
+                            IMPORTANT for AMOUNT:
+                            - Look for "PAGATO", "CARTA", "CONTANTI", "BANCOMAT", "TOTALE" (NOT "SUBTOTALE")
+                            - This is the final amount paid including tax/IVA
+                            - Format: just the number (e.g., 45.50)
+
+                            IMPORTANT for CATEGORY:
+                            - Look at merchant name and items
+                            - Available categories: Supermarket, Fuel, Pharmacy, Food, Crew, Chandlery, Water Test, Welder, Tender Fuel, Fly
 
                             Reply ONLY with JSON format:
                             {"amount": 45.50, "category": "Supermarket"}
 
                             If you cannot determine amount or category, use null.
+                            Example: {"amount": null, "category": "Fuel"}
                             """
                         ]
                     ]
@@ -492,17 +500,33 @@ class ReceiptOCRService {
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
 
+            print("🔄 Calling Claude API...")
+
             let (data, response) = try await URLSession.shared.data(for: request)
 
-            guard let httpResponse = response as? HTTPURLResponse,
-                  httpResponse.statusCode == 200 else {
-                print("❌ Claude API error: invalid response")
+            guard let httpResponse = response as? HTTPURLResponse else {
+                print("❌ Claude API error: No HTTP response")
                 return fallbackData(fallbackText)
+            }
+
+            print("📡 Claude API HTTP Status: \(httpResponse.statusCode)")
+
+            guard httpResponse.statusCode == 200 else {
+                // Log error details
+                if let errorBody = String(data: data, encoding: .utf8) {
+                    print("❌ Claude API error body: \(errorBody)")
+                }
+                return fallbackData(fallbackText)
+            }
+
+            // Log raw response for debugging
+            if let rawResponse = String(data: data, encoding: .utf8) {
+                print("📄 Claude API raw response: \(rawResponse)")
             }
 
             // Parse response
             if let claudeData = parseClaudeResponse(data) {
-                print("✅ Claude API success: \(claudeData)")
+                print("✅ Claude API parsed - Amount: €\(claudeData.amount?.description ?? "nil"), Category: \(claudeData.category ?? "nil")")
                 return ReceiptData(
                     amount: claudeData.amount,
                     categoryName: claudeData.category,
@@ -513,6 +537,8 @@ class ReceiptOCRService {
                     ),
                     ocrSource: .claude
                 )
+            } else {
+                print("❌ Claude API response parsing failed")
             }
 
         } catch {
@@ -527,27 +553,49 @@ class ReceiptOCRService {
     /// - Returns: Amount e category estratti
     private func parseClaudeResponse(_ data: Data) -> (amount: Double?, category: String?)? {
         do {
-            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let content = json["content"] as? [[String: Any]],
-                  let firstContent = content.first,
-                  let text = firstContent["text"] as? String else {
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                print("⚠️ Claude response: not a JSON object")
                 return nil
             }
 
+            guard let content = json["content"] as? [[String: Any]] else {
+                print("⚠️ Claude response: no 'content' array")
+                return nil
+            }
+
+            guard let firstContent = content.first else {
+                print("⚠️ Claude response: content array is empty")
+                return nil
+            }
+
+            guard let text = firstContent["text"] as? String else {
+                print("⚠️ Claude response: no 'text' in content")
+                return nil
+            }
+
+            print("📝 Claude extracted text: \(text)")
+
             // Estrai JSON dalla risposta di Claude
             // Claude potrebbe rispondere con: {"amount": 45.50, "category": "Supermarket"}
-            guard let jsonData = text.data(using: .utf8),
-                  let parsed = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+            guard let jsonData = text.data(using: .utf8) else {
+                print("⚠️ Cannot convert Claude text to data")
+                return nil
+            }
+
+            guard let parsed = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+                print("⚠️ Claude text is not valid JSON: \(text)")
                 return nil
             }
 
             let amount = parsed["amount"] as? Double
             let category = parsed["category"] as? String
 
+            print("🔍 Parsed from Claude JSON - amount: \(amount?.description ?? "nil"), category: \(category ?? "nil")")
+
             return (amount, category)
 
         } catch {
-            print("⚠️ Error parsing Claude response: \(error)")
+            print("❌ Error parsing Claude response: \(error.localizedDescription)")
             return nil
         }
     }
