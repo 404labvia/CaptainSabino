@@ -15,6 +15,7 @@ struct ContentView: View {
     @Query private var categories: [Category]
     @Query private var settings: [YachtSettings]
     @Query private var reminders: [Reminder]
+    @Query private var learnedKeywords: [LearnedKeyword]
     @State private var showingOnboarding = false
     @State private var showingAddMenu = false
     @State private var showingAddExpense = false
@@ -26,6 +27,7 @@ struct ContentView: View {
     @State private var voiceParsedAmount: Double?
     @State private var voiceParsedCategory: Category?
     @State private var capturedReceiptImage: UIImage?
+    @State private var capturedReceiptOCRText: String? // Testo OCR per learning
     @State private var selectedTab = 0
 
     // MARK: - Body
@@ -105,7 +107,8 @@ struct ContentView: View {
                     AddExpenseView(
                         prefilledAmount: voiceParsedAmount,
                         prefilledCategory: voiceParsedCategory,
-                        receiptImage: capturedReceiptImage
+                        receiptImage: capturedReceiptImage,
+                        ocrText: capturedReceiptOCRText
                     )
                 }
                 .sheet(isPresented: $showingVoiceInput) {
@@ -350,10 +353,11 @@ struct ContentView: View {
             processingMessage = "Processing receipt..."
         }
 
-        // Step 2: Try Apple Vision OCR first (without Claude)
+        // Step 2: Try Apple Vision OCR first (without Claude, but with learned keywords)
         var receiptData = await ReceiptOCRService.shared.processReceipt(
             image: image,
-            claudeAPIKey: nil  // Don't use Claude yet
+            claudeAPIKey: nil,  // Don't use Claude yet
+            learnedKeywords: learnedKeywords
         )
 
         // Step 3: If amount not found AND Claude API key exists, retry with Claude
@@ -374,10 +378,11 @@ struct ContentView: View {
                 processingMessage = "🤖 Retrying with AI..."
             }
 
-            // Retry with Claude API
+            // Retry with Claude API (with learned keywords)
             receiptData = await ReceiptOCRService.shared.processReceipt(
                 image: image,
-                claudeAPIKey: claudeAPIKey
+                claudeAPIKey: claudeAPIKey,
+                learnedKeywords: learnedKeywords
             )
 
             if receiptData.amount != nil {
@@ -408,6 +413,7 @@ struct ContentView: View {
         await MainActor.run {
             voiceParsedAmount = receiptData.amount
             voiceParsedCategory = matchedCategory
+            capturedReceiptOCRText = receiptData.fullText  // Save OCR text for learning
 
             // Hide processing overlay
             isProcessingReceipt = false

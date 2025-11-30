@@ -15,11 +15,13 @@ struct AddExpenseView: View {
     @Environment(\.dismiss) private var dismiss
     @Query private var categories: [Category]
     @Query private var settings: [YachtSettings]
+    @Query private var learnedKeywords: [LearnedKeyword]
 
     // Prefilled data from voice input or OCR (optional)
     var prefilledAmount: Double?
     var prefilledCategory: Category?
     var receiptImage: UIImage?
+    var ocrText: String? // Testo OCR per learning delle keyword
 
     @State private var amount = ""
     @State private var selectedCategory: Category?
@@ -174,12 +176,58 @@ struct AddExpenseView: View {
 
         modelContext.insert(newExpense)
 
+        // MACHINE LEARNING: Learn keywords from OCR text
+        if let ocrText = ocrText, !ocrText.isEmpty {
+            learnKeywordsFromReceipt(ocrText: ocrText, categoryName: selectedCategory.name)
+        }
+
         do {
             try modelContext.save()
             dismiss()
         } catch {
             showAlert("Failed to save expense: \(error.localizedDescription)")
         }
+    }
+
+    /// Impara keyword dal testo OCR e le associa alla categoria scelta
+    /// - Parameters:
+    ///   - ocrText: Testo estratto dallo scontrino
+    ///   - categoryName: Nome della categoria scelta dall'utente
+    private func learnKeywordsFromReceipt(ocrText: String, categoryName: String) {
+        // Estrai keyword significative
+        let keywords = ReceiptOCRService.shared.extractMerchantKeywords(from: ocrText)
+
+        guard !keywords.isEmpty else {
+            print("📚 No keywords to learn from this receipt")
+            return
+        }
+
+        print("🎓 Learning \(keywords.count) keywords for category '\(categoryName)'")
+
+        for keyword in keywords {
+            // Controlla se keyword già esiste
+            if let existing = learnedKeywords.first(where: {
+                $0.keyword == keyword && $0.categoryName == categoryName
+            }) {
+                // Keyword già presente: incrementa usage count
+                existing.usageCount += 1
+                existing.lastUsedDate = Date()
+                print("   ↗️ Updated '\(keyword)' (now used \(existing.usageCount) times)")
+            } else {
+                // Keyword nuova: crea e salva
+                let learned = LearnedKeyword(
+                    categoryName: categoryName,
+                    keyword: keyword,
+                    learnedDate: Date(),
+                    usageCount: 1,
+                    lastUsedDate: Date()
+                )
+                modelContext.insert(learned)
+                print("   ✨ Learned new keyword '\(keyword)' → \(categoryName)")
+            }
+        }
+
+        print("✅ Learning complete! Total learned keywords: \(learnedKeywords.count)")
     }
     
     private func showAlert(_ message: String) {

@@ -188,10 +188,12 @@ class ReceiptOCRService {
     /// - Parameters:
     ///   - image: UIImage dello scontrino
     ///   - claudeAPIKey: Chiave API Claude (opzionale)
+    ///   - learnedKeywords: Keyword apprese dal sistema (opzionale)
     /// - Returns: ReceiptData con informazioni estratte
     func processReceipt(
         image: UIImage,
-        claudeAPIKey: String? = nil
+        claudeAPIKey: String? = nil,
+        learnedKeywords: [LearnedKeyword] = []
     ) async -> ReceiptData {
         // Step 1: Apple Vision OCR
         let visionText = await performVisionOCR(on: image)
@@ -209,8 +211,9 @@ class ReceiptOCRService {
         // Step 2: Extract amount
         let extractedAmount = extractAmount(from: visionText)
 
-        // Step 3: Keyword matching per categoria (ora con score e strength)
-        let categoryMatch = matchCategory(from: visionText)
+        // Step 3: Keyword matching per categoria (base + learned)
+        print("📊 Matching with \(categoryKeywords.count) base categories + \(learnedKeywords.count) learned keywords")
+        let categoryMatch = matchCategory(from: visionText, learnedKeywords: learnedKeywords)
 
         // Step 4: Determina se serve Claude API (THRESHOLD LOGIC)
         let shouldUseClaude: Bool
@@ -441,15 +444,66 @@ class ReceiptOCRService {
 
     // MARK: - Category Matching
 
+    /// Estrae parole chiave significative dal nome del merchant (prime righe scontrino)
+    /// - Parameter text: Testo OCR completo
+    /// - Returns: Array di keyword da apprendere (max 5, >3 caratteri)
+    func extractMerchantKeywords(from text: String) -> [String] {
+        // Parole generiche da escludere (troppo comuni)
+        let commonWords: Set<String> = [
+            "S.P.A", "SPA", "S.R.L", "SRL", "S.N.C", "SNC", "S.A.S", "SAS",
+            "VIA", "VIALE", "PIAZZA", "CORSO", "STRADA", "LARGO",
+            "P.IVA", "PIVA", "C.F.", "TEL", "FAX", "WWW", "HTTP",
+            "ITALY", "ITALIA", "FISCALE", "CODICE", "PARTITA",
+            "RICEVUTA", "SCONTRINO", "RECEIPT", "FATTURA",
+            "DATA", "DATE", "ORA", "TIME", "NUMERO", "NUMBER"
+        ]
+
+        let lines = text.split(separator: "\n")
+
+        // Prendi le prime 3 righe (di solito nome merchant)
+        let topLines = Array(lines.prefix(3))
+
+        var keywords: [String] = []
+
+        for line in topLines {
+            let words = line.split(separator: " ")
+
+            for word in words {
+                let cleanWord = String(word)
+                    .uppercased()
+                    .trimmingCharacters(in: CharacterSet.punctuationCharacters)
+
+                // Filtra parole significative
+                let isValidLength = cleanWord.count >= 4  // Min 4 caratteri
+                let isNotNumber = !cleanWord.allSatisfy { $0.isNumber }
+                let isNotCommon = !commonWords.contains(cleanWord)
+                let hasLetters = cleanWord.contains { $0.isLetter }
+
+                if isValidLength && isNotNumber && isNotCommon && hasLetters {
+                    keywords.append(cleanWord)
+                }
+            }
+        }
+
+        // Rimuovi duplicati e limita a 5
+        let uniqueKeywords = Array(Set(keywords)).prefix(5)
+
+        print("📚 Extracted keywords for learning: \(uniqueKeywords.joined(separator: ", "))")
+
+        return Array(uniqueKeywords)
+    }
+
     /// Trova la categoria più probabile dal testo con score
-    /// - Parameter text: Testo OCR
+    /// - Parameters:
+    ///   - text: Testo OCR
+    ///   - learnedKeywords: Keyword apprese dal sistema (opzionale)
     /// - Returns: CategoryMatch con categoria, score e strength
-    private func matchCategory(from text: String) -> CategoryMatch {
+    private func matchCategory(from text: String, learnedKeywords: [LearnedKeyword] = []) -> CategoryMatch {
         let normalizedText = text.uppercased()
 
         var categoryScores: [String: Int] = [:]
 
-        // Cerca keywords in ogni categoria
+        // PARTE 1: Cerca keyword BASE (hard-coded)
         for (categoryName, keywords) in categoryKeywords {
             var score = 0
 
@@ -462,6 +516,20 @@ class ReceiptOCRService {
 
             if score > 0 {
                 categoryScores[categoryName] = score
+            }
+        }
+
+        // PARTE 2: Cerca keyword LEARNED (apprese dall'utente)
+        for learned in learnedKeywords {
+            if normalizedText.contains(learned.keyword) {
+                // Peso keyword learned: lunghezza + bonus per usage count
+                let baseScore = learned.keyword.count
+                let usageBonus = min(learned.usageCount, 5) // Max +5 bonus
+                let totalScore = baseScore + usageBonus
+
+                categoryScores[learned.categoryName, default: 0] += totalScore
+
+                print("🎯 Learned keyword matched: '\(learned.keyword)' → \(learned.categoryName) (+\(totalScore) points, used \(learned.usageCount) times)")
             }
         }
 

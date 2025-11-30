@@ -11,7 +11,8 @@ struct CaptainSabinoApp: App {
             Expense.self,
             Category.self,
             Reminder.self,
-            YachtSettings.self
+            YachtSettings.self,
+            LearnedKeyword.self
         ])
     }
 }

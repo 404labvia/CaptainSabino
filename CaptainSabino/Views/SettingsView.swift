@@ -13,8 +13,10 @@ struct SettingsView: View {
     
     @Environment(\.modelContext) private var modelContext
     @Query private var settings: [YachtSettings]
-    
+    @Query private var learnedKeywords: [LearnedKeyword]
+
     @State private var showingEditSettings = false
+    @State private var showingResetConfirmation = false
     
     private var yachtSettings: YachtSettings? {
         settings.first
@@ -38,6 +40,36 @@ struct SettingsView: View {
             .sheet(isPresented: $showingEditSettings) {
                 EditSettingsView()
             }
+            .confirmationDialog(
+                "Reset Learned Keywords?",
+                isPresented: $showingResetConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Reset (\(learnedKeywords.count) keywords)", role: .destructive) {
+                    resetLearnedKeywords()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This will delete all learned keywords. The system will start learning again from scratch.")
+            }
+        }
+    }
+
+    // MARK: - Functions
+
+    /// Reset di tutte le keyword apprese
+    private func resetLearnedKeywords() {
+        print("🔄 Resetting \(learnedKeywords.count) learned keywords...")
+
+        for keyword in learnedKeywords {
+            modelContext.delete(keyword)
+        }
+
+        do {
+            try modelContext.save()
+            print("✅ All learned keywords deleted successfully")
+        } catch {
+            print("❌ Error deleting learned keywords: \(error)")
         }
     }
     
@@ -113,6 +145,26 @@ struct SettingsView: View {
                             Image(systemName: "checkmark.circle.fill")
                                 .foregroundColor(.green)
                                 .font(.caption)
+                        }
+                    }
+                }
+
+                // Learned Keywords Info + Reset
+                if !learnedKeywords.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Label("Learned keywords", systemImage: "brain.head.profile")
+                                .foregroundColor(.blue)
+                            Spacer()
+                            Text("\(learnedKeywords.count)")
+                                .foregroundColor(.secondary)
+                                .font(.caption)
+                        }
+
+                        Button(role: .destructive) {
+                            showingResetConfirmation = true
+                        } label: {
+                            Label("Reset learned keywords", systemImage: "arrow.counterclockwise")
                         }
                     }
                 }
