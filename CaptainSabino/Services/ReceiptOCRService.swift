@@ -162,8 +162,9 @@ class ReceiptOCRService {
             hasCategory: matchedCategory != nil
         )
 
-        // Step 5: Se low confidence e Claude disponibile, usa API
-        if confidence == .low, let apiKey = claudeAPIKey, !apiKey.isEmpty {
+        // Step 5: Se Claude disponibile, usa API (per auto-retry quando amount è nil)
+        if let apiKey = claudeAPIKey, !apiKey.isEmpty {
+            print("✅ Claude API key provided - calling Claude API")
             return await processWithClaudeAPI(
                 image: image,
                 apiKey: apiKey,
