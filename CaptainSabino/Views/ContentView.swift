@@ -22,6 +22,7 @@ struct ContentView: View {
     @State private var showingAddReminder = false
     @State private var showingCameraReceipt = false
     @State private var isProcessingReceipt = false
+    @State private var processingMessage = "Processing receipt..."
     @State private var voiceParsedAmount: Double?
     @State private var voiceParsedCategory: Category?
     @State private var capturedReceiptImage: UIImage?
@@ -142,7 +143,7 @@ struct ContentView: View {
                                     .scaleEffect(1.5)
                                     .tint(.white)
 
-                                Text("Processing receipt...")
+                                Text(processingMessage)
                                     .font(.headline)
                                     .foregroundColor(.white)
                             }
@@ -342,16 +343,43 @@ struct ContentView: View {
         }
     }
 
-    /// Processa lo scontrino con OCR
+    /// Processa lo scontrino con OCR (con auto-retry Claude se fallisce)
     private func processReceiptWithOCR(image: UIImage) async {
-        // Get Claude API key from settings (se configurato)
-        let claudeAPIKey = settings.first?.claudeAPIKey
+        // Step 1: Reset message
+        await MainActor.run {
+            processingMessage = "Processing receipt..."
+        }
 
-        // Process with OCR service
-        let receiptData = await ReceiptOCRService.shared.processReceipt(
+        // Step 2: Try Apple Vision OCR first (without Claude)
+        var receiptData = await ReceiptOCRService.shared.processReceipt(
             image: image,
-            claudeAPIKey: claudeAPIKey
+            claudeAPIKey: nil  // Don't use Claude yet
         )
+
+        // Step 3: If amount not found AND Claude API key exists, retry with Claude
+        if receiptData.amount == nil,
+           let claudeAPIKey = settings.first?.claudeAPIKey,
+           !claudeAPIKey.isEmpty {
+
+            print("⚠️ Amount not found, retrying with Claude API...")
+
+            // Update message to show AI retry
+            await MainActor.run {
+                processingMessage = "🤖 Retrying with AI..."
+            }
+
+            // Retry with Claude API
+            receiptData = await ReceiptOCRService.shared.processReceipt(
+                image: image,
+                claudeAPIKey: claudeAPIKey
+            )
+
+            if receiptData.amount != nil {
+                print("✅ Amount found with Claude API: €\(receiptData.amount!)")
+            } else {
+                print("❌ Amount still not found even with Claude")
+            }
+        }
 
         // Find category in database by name
         var matchedCategory: Category?
