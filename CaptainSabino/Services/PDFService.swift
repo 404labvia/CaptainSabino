@@ -49,9 +49,14 @@ class PDFService {
             yPosition = drawSummary(rect: pageRect, yPosition: yPosition, expenses: expenses)
             
             yPosition += 30
-            
-            // Table
-            drawExpenseTable(in: context, rect: pageRect, yPosition: yPosition, expenses: expenses)
+
+            // Summary Table
+            yPosition = drawExpenseTable(in: context, rect: pageRect, yPosition: yPosition, expenses: expenses)
+
+            yPosition += 40
+
+            // Detailed Table
+            drawDetailedExpenseTable(in: context, rect: pageRect, yPosition: yPosition, expenses: expenses, month: month)
         }
         
         // Salva il PDF
@@ -78,7 +83,7 @@ class PDFService {
         var y = yPosition
         
         // Titolo principale
-        let title = "YACHT EXPENSE REPORT"
+        let title = "EXPENSE REPORT"
         let titleFont = UIFont.boldSystemFont(ofSize: 24)
         let titleAttributes: [NSAttributedString.Key: Any] = [
             .font: titleFont,
@@ -91,7 +96,7 @@ class PDFService {
         
         // Sottotitolo con mese
         let monthText = formatMonth(month)
-        let subtitleFont = UIFont.systemFont(ofSize: 16)
+        let subtitleFont = UIFont.systemFont(ofSize: 20)
         let subtitleAttributes: [NSAttributedString.Key: Any] = [
             .font: subtitleFont,
             .foregroundColor: UIColor.gray
@@ -119,9 +124,7 @@ class PDFService {
         
         let yachtInfo = [
             "Yacht: \(settings.yachtName)",
-            "Owner: \(settings.ownerName)",
-            "Captain: \(settings.captainName)",
-            "Report Date: \(formatDate(Date()))"
+            "Captain: \(settings.captainName)"
         ]
         
         for info in yachtInfo {
@@ -141,15 +144,14 @@ class PDFService {
         let y = yPosition
 
         let totalAmount = expenses.reduce(0) { $0 + $1.amount }
-        let transactionCount = expenses.count
-        
-        // Background box
-        let boxRect = CGRect(x: 40, y: y, width: rect.width - 80, height: 60)
+
+        // Background box (ridotto in altezza senza transaction count)
+        let boxRect = CGRect(x: 40, y: y, width: rect.width - 80, height: 50)
         let boxPath = UIBezierPath(roundedRect: boxRect, cornerRadius: 8)
         UIColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1.0).setFill()
         boxPath.fill()
-        
-        // Total Amount (grande)
+
+        // Total Amount (centrato verticalmente)
         let totalText = String(format: "TOTAL: €%.2f", totalAmount)
         let totalFont = UIFont.boldSystemFont(ofSize: 20)
         let totalAttributes: [NSAttributedString.Key: Any] = [
@@ -159,36 +161,26 @@ class PDFService {
         let totalSize = totalText.size(withAttributes: totalAttributes)
         let totalX = (rect.width - totalSize.width) / 2
         totalText.draw(at: CGPoint(x: totalX, y: y + 15), withAttributes: totalAttributes)
-        
-        // Transaction count
-        let countText = "\(transactionCount) transactions"
-        let countFont = UIFont.systemFont(ofSize: 12)
-        let countAttributes: [NSAttributedString.Key: Any] = [
-            .font: countFont,
-            .foregroundColor: UIColor.gray
-        ]
-        let countSize = countText.size(withAttributes: countAttributes)
-        let countX = (rect.width - countSize.width) / 2
-        countText.draw(at: CGPoint(x: countX, y: y + 42), withAttributes: countAttributes)
-        
-        return y + 70
+
+        return y + 60
     }
     
-    /// Disegna la tabella delle spese
+    /// Disegna la tabella delle spese riepilogativa
     private func drawExpenseTable(
         in context: UIGraphicsPDFRendererContext,
         rect: CGRect,
         yPosition: CGFloat,
         expenses: [Expense]
-    ) {
+    ) -> CGFloat {
         var y = yPosition
         let leftMargin: CGFloat = 40
         let rightMargin: CGFloat = 40
         let tableWidth = rect.width - leftMargin - rightMargin
         
-        // Colonne: Count, Category, Amount, Percentage
+        // Colonne: Count, Category, %, Amount (invertiti)
         let countWidth: CGFloat = tableWidth * 0.15
         let categoryWidth: CGFloat = tableWidth * 0.45
+        let percentWidth: CGFloat = tableWidth * 0.15
         let amountWidth: CGFloat = tableWidth * 0.25
         let _: CGFloat = tableWidth * 0.15  // percentWidth - calculated but spacing handled by layout
         
@@ -204,11 +196,11 @@ class PDFService {
         UIColor(red: 0.2, green: 0.4, blue: 0.8, alpha: 1.0).setFill()
         UIBezierPath(rect: headerRect).fill()
         
-        // Header text
+        // Header text (Amount e % invertiti)
         "Count".draw(at: CGPoint(x: leftMargin + 8, y: y + 8), withAttributes: headerAttributes)
         "Category".draw(at: CGPoint(x: leftMargin + countWidth + 8, y: y + 8), withAttributes: headerAttributes)
-        "Amount".draw(at: CGPoint(x: leftMargin + countWidth + categoryWidth + 8, y: y + 8), withAttributes: headerAttributes)
-        "%".draw(at: CGPoint(x: leftMargin + countWidth + categoryWidth + amountWidth + 8, y: y + 8), withAttributes: headerAttributes)
+        "%".draw(at: CGPoint(x: leftMargin + countWidth + categoryWidth + 8, y: y + 8), withAttributes: headerAttributes)
+        "Amount".draw(at: CGPoint(x: leftMargin + countWidth + categoryWidth + percentWidth + 8, y: y + 8), withAttributes: headerAttributes)
         
         y += 30
         
@@ -239,11 +231,11 @@ class PDFService {
             
             let percentage = totalAmount > 0 ? (item.total / totalAmount) * 100 : 0
 
-            // Draw cells
+            // Draw cells (% e Amount invertiti)
             "\(item.count)".draw(at: CGPoint(x: leftMargin + 8, y: y + 6), withAttributes: cellAttributes)
             item.category.draw(at: CGPoint(x: leftMargin + countWidth + 8, y: y + 6), withAttributes: cellAttributes)
-            String(format: "€%.2f", item.total).draw(at: CGPoint(x: leftMargin + countWidth + categoryWidth + 8, y: y + 6), withAttributes: cellAttributes)
-            String(format: "%.1f%%", percentage).draw(at: CGPoint(x: leftMargin + countWidth + categoryWidth + amountWidth + 8, y: y + 6), withAttributes: cellAttributes)
+            String(format: "%.1f%%", percentage).draw(at: CGPoint(x: leftMargin + countWidth + categoryWidth + 8, y: y + 6), withAttributes: cellAttributes)
+            String(format: "€%.2f", item.total).draw(at: CGPoint(x: leftMargin + countWidth + categoryWidth + percentWidth + 8, y: y + 6), withAttributes: cellAttributes)
             
             y += 25
             isAlternate.toggle()
@@ -262,10 +254,131 @@ class PDFService {
         ]
         
         "TOTAL".draw(at: CGPoint(x: leftMargin + countWidth + 8, y: y + 8), withAttributes: footerAttributes)
-        String(format: "€%.2f", totalAmount).draw(at: CGPoint(x: leftMargin + countWidth + categoryWidth + 8, y: y + 8), withAttributes: footerAttributes)
-        "100%".draw(at: CGPoint(x: leftMargin + countWidth + categoryWidth + amountWidth + 8, y: y + 8), withAttributes: footerAttributes)
+        "100%".draw(at: CGPoint(x: leftMargin + countWidth + categoryWidth + 8, y: y + 8), withAttributes: footerAttributes)
+        String(format: "€%.2f", totalAmount).draw(at: CGPoint(x: leftMargin + countWidth + categoryWidth + percentWidth + 8, y: y + 8), withAttributes: footerAttributes)
+
+        return y + 30
     }
-    
+
+    /// Disegna la tabella dettagliata delle spese per giorno
+    private func drawDetailedExpenseTable(
+        in context: UIGraphicsPDFRendererContext,
+        rect: CGRect,
+        yPosition: CGFloat,
+        expenses: [Expense],
+        month: Date
+    ) {
+        var y = yPosition
+        let leftMargin: CGFloat = 40
+        let rightMargin: CGFloat = 40
+        let tableWidth = rect.width - leftMargin - rightMargin
+
+        // Title
+        let titleFont = UIFont.boldSystemFont(ofSize: 14)
+        let titleAttributes: [NSAttributedString.Key: Any] = [
+            .font: titleFont,
+            .foregroundColor: UIColor.black
+        ]
+        "DETAILED EXPENSES".draw(at: CGPoint(x: leftMargin, y: y), withAttributes: titleAttributes)
+        y += 25
+
+        // Column widths
+        let dayWidth: CGFloat = tableWidth * 0.15
+        let categoryWidth: CGFloat = tableWidth * 0.55
+        let amountWidth: CGFloat = tableWidth * 0.30
+
+        // Header
+        let headerFont = UIFont.boldSystemFont(ofSize: 10)
+        let headerAttributes: [NSAttributedString.Key: Any] = [
+            .font: headerFont,
+            .foregroundColor: UIColor.white
+        ]
+
+        let headerRect = CGRect(x: leftMargin, y: y, width: tableWidth, height: 25)
+        UIColor(red: 0.2, green: 0.4, blue: 0.8, alpha: 1.0).setFill()
+        UIBezierPath(rect: headerRect).fill()
+
+        "Day".draw(at: CGPoint(x: leftMargin + 8, y: y + 7), withAttributes: headerAttributes)
+        "Category".draw(at: CGPoint(x: leftMargin + dayWidth + 8, y: y + 7), withAttributes: headerAttributes)
+        "Amount".draw(at: CGPoint(x: leftMargin + dayWidth + categoryWidth + 8, y: y + 7), withAttributes: headerAttributes)
+
+        y += 25
+
+        // Get all days in month
+        let calendar = Calendar.current
+        let range = calendar.range(of: .day, in: .month, for: month)!
+        let year = calendar.component(.year, from: month)
+        let monthComponent = calendar.component(.month, from: month)
+
+        // Group expenses by day
+        let expensesByDay = Dictionary(grouping: expenses) { expense -> Int in
+            return calendar.component(.day, from: expense.date)
+        }
+
+        // Cell font
+        let cellFont = UIFont.systemFont(ofSize: 9)
+        let cellAttributes: [NSAttributedString.Key: Any] = [
+            .font: cellFont,
+            .foregroundColor: UIColor.black
+        ]
+
+        var isAlternate = false
+
+        // Iterate through all days
+        for day in range {
+            guard let dateComponents = DateComponents(calendar: calendar, year: year, month: monthComponent, day: day).date else { continue }
+
+            let expensesForDay = expensesByDay[day] ?? []
+
+            if expensesForDay.isEmpty {
+                continue // Skip days without expenses
+            }
+
+            // Group by category for this day
+            let categorizedExpenses = Dictionary(grouping: expensesForDay) { $0.category?.name ?? "Unknown" }
+            let dayTotal = expensesForDay.reduce(0) { $0 + $1.amount }
+
+            var isFirstRowForDay = true
+
+            for (categoryName, categoryExpenses) in categorizedExpenses.sorted(by: { $0.key < $1.key }) {
+                // Check if we need a new page
+                if y > rect.height - 100 {
+                    context.beginPage()
+                    y = 40
+                }
+
+                // Alternate row color
+                if isAlternate {
+                    let rowRect = CGRect(x: leftMargin, y: y, width: tableWidth, height: 20)
+                    UIColor(red: 0.98, green: 0.98, blue: 0.98, alpha: 1.0).setFill()
+                    UIBezierPath(rect: rowRect).fill()
+                }
+
+                let categoryTotal = categoryExpenses.reduce(0) { $0 + $1.amount }
+
+                // Day (only on first row)
+                if isFirstRowForDay {
+                    let dayFormatter = DateFormatter()
+                    dayFormatter.dateFormat = "MMM d"
+                    let dayText = dayFormatter.string(from: dateComponents)
+                    dayText.draw(at: CGPoint(x: leftMargin + 8, y: y + 5), withAttributes: cellAttributes)
+                }
+
+                // Category and amount
+                "\(categoryName) €\(String(format: "%.2f", categoryTotal))".draw(at: CGPoint(x: leftMargin + dayWidth + 8, y: y + 5), withAttributes: cellAttributes)
+
+                // Day total (only on first row)
+                if isFirstRowForDay {
+                    String(format: "€%.2f", dayTotal).draw(at: CGPoint(x: leftMargin + dayWidth + categoryWidth + 8, y: y + 5), withAttributes: cellAttributes)
+                    isFirstRowForDay = false
+                }
+
+                y += 20
+                isAlternate.toggle()
+            }
+        }
+    }
+
     // MARK: - Helper Methods
     
     private func formatMonth(_ date: Date) -> String {

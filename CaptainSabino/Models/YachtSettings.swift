@@ -11,71 +11,78 @@ import SwiftData
 @Model
 final class YachtSettings {
     // MARK: - Properties
-    
+
     /// ID univoco (ci sarà solo 1 istanza)
     var id: UUID
-    
+
     /// Nome dello yacht
     var yachtName: String
-    
-    /// Nome dell'armatore/proprietario
-    var ownerName: String
-    
-    /// Email dell'armatore (preimpostata per report)
+
+    /// Email dell'armatore/destinatario report
     var ownerEmail: String
-    
+
     /// Nome del comandante
     var captainName: String
-    
-    /// Tasso di cambio fisso EUR/USD (es: 1.10)
-    var exchangeRateEURtoUSD: Double
-    
+
+    /// Email del comandante (mittente report)
+    var captainEmail: String
+
     /// Data di creazione/configurazione iniziale
     var createdAt: Date
-    
+
     /// Data ultimo aggiornamento
     var updatedAt: Date
-    
+
+    /// Sincronizza foto scontrini su iCloud Drive
+    var syncReceiptsToiCloud: Bool
+
+    /// Chiave API Claude (opzionale, per OCR avanzato)
+    var claudeAPIKey: String?
+
     // MARK: - Initializer
-    
+
     /// Inizializzatore per creare le impostazioni
     /// - Parameters:
     ///   - yachtName: Nome dello yacht
-    ///   - ownerName: Nome armatore
-    ///   - ownerEmail: Email armatore
+    ///   - ownerEmail: Email armatore (destinatario)
     ///   - captainName: Nome comandante
-    ///   - exchangeRate: Tasso cambio EUR/USD (default: 1.10)
+    ///   - captainEmail: Email comandante (mittente)
+    ///   - syncReceiptsToiCloud: Sincronizza scontrini su iCloud (default: false)
+    ///   - claudeAPIKey: Chiave API Claude opzionale (default: nil)
     init(
         yachtName: String = "",
-        ownerName: String = "",
         ownerEmail: String = "",
         captainName: String = "",
-        exchangeRate: Double = 1.10
+        captainEmail: String = "",
+        syncReceiptsToiCloud: Bool = false,
+        claudeAPIKey: String? = nil
     ) {
         self.id = UUID()
         self.yachtName = yachtName
-        self.ownerName = ownerName
         self.ownerEmail = ownerEmail
         self.captainName = captainName
-        self.exchangeRateEURtoUSD = exchangeRate
+        self.captainEmail = captainEmail
+        self.syncReceiptsToiCloud = syncReceiptsToiCloud
+        self.claudeAPIKey = claudeAPIKey
         self.createdAt = Date()
         self.updatedAt = Date()
     }
-    
+
     // MARK: - Methods
-    
+
     /// Aggiorna la data di ultimo aggiornamento
     func touch() {
         self.updatedAt = Date()
     }
-    
+
     /// Verifica se le impostazioni sono complete
     var isComplete: Bool {
         return !yachtName.isEmpty &&
-               !ownerName.isEmpty &&
                !ownerEmail.isEmpty &&
                !captainName.isEmpty &&
-               ownerEmail.contains("@")
+               !captainEmail.isEmpty &&
+               ownerEmail.contains("@") &&
+               captainEmail.contains("@")
     }
 }
 
@@ -86,10 +93,9 @@ extension YachtSettings {
     static var sample: YachtSettings {
         return YachtSettings(
             yachtName: "Azure Dream",
-            ownerName: "Alessandro Rossi",
-            ownerEmail: "alessandro.rossi@example.com",
+            ownerEmail: "owner@example.com",
             captainName: "Marco Bianchi",
-            exchangeRate: 1.10
+            captainEmail: "captain@example.com"
         )
     }
 }

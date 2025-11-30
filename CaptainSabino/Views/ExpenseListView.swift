@@ -24,32 +24,31 @@ struct ExpenseListView: View {
     
     var body: some View {
         NavigationStack {
-            ZStack {
+            VStack(spacing: 0) {
+                // Title
+                HStack {
+                    Text("Expenses")
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
+                    Spacer()
+                }
+                .padding(.horizontal)
+                .padding(.top, 10)
+
+                // Quick Actions (Add Expense & Report)
+                quickActionsSection
+                    .padding(.horizontal)
+                    .padding(.top, 10)
+
+                // Content
                 if filteredExpenses.isEmpty {
                     emptyStateView
                 } else {
                     expenseListView
                 }
             }
-            .navigationTitle("Expenses")
+            .navigationBarHidden(true)
             .searchable(text: $searchText, prompt: "Search expenses...")
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        showingFilterSheet.toggle()
-                    } label: {
-                        Image(systemName: selectedCategory == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
-                    }
-                }
-                
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showingAddExpense.toggle()
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                }
-            }
             .sheet(isPresented: $showingAddExpense) {
                 AddExpenseView()
             }
@@ -81,12 +80,67 @@ struct ExpenseListView: View {
     }
     
     // MARK: - View Components
-    
+
+    private var quickActionsSection: some View {
+        HStack(spacing: 12) {
+            // Add Expense Button
+            Button {
+                showingAddExpense = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.title3)
+                    Text("Add Expense")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(Color.blue)
+                .foregroundStyle(.white)
+                .cornerRadius(12)
+                .shadow(color: .black.opacity(0.2), radius: 6, x: 0, y: 3)
+            }
+
+            // Report Button
+            NavigationLink {
+                ReportView()
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "doc.text")
+                        .font(.title3)
+                    Text("Report")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(Color.green)
+                .foregroundStyle(.white)
+                .cornerRadius(12)
+                .shadow(color: .black.opacity(0.2), radius: 6, x: 0, y: 3)
+            }
+
+            // Filter Button
+            Button {
+                showingFilterSheet = true
+            } label: {
+                Image(systemName: selectedCategory == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+                    .font(.title2)
+                    .frame(width: 50, height: 50)
+                    .background(Color(.secondarySystemBackground))
+                    .foregroundStyle(.blue)
+                    .cornerRadius(12)
+                    .shadow(color: .black.opacity(0.2), radius: 6, x: 0, y: 3)
+            }
+        }
+    }
+
     private var expenseListView: some View {
         List {
-            ForEach(sortedMonthYears, id: \.self) { monthYear in
-                Section(header: Text(monthYear).font(.headline)) {
-                    ForEach(groupedExpenses[monthYear] ?? []) { expense in
+            ForEach(sortedDays, id: \.self) { day in
+                Section(header: Text(dayHeaderText(for: day)).font(.headline)) {
+                    ForEach(expensesGroupedByDay[day] ?? []) { expense in
                         NavigationLink {
                             EditExpenseView(expense: expense)
                         } label: {
@@ -94,7 +148,7 @@ struct ExpenseListView: View {
                         }
                     }
                     .onDelete { indexSet in
-                        deleteExpenses(at: indexSet, in: monthYear)
+                        deleteExpenses(at: indexSet, on: day)
                     }
                 }
             }
@@ -129,29 +183,38 @@ struct ExpenseListView: View {
         .padding()
     }
     
-    private var groupedExpenses: [String: [Expense]] {
-        Dictionary(grouping: filteredExpenses) { $0.monthYear }
+    private var expensesGroupedByDay: [Date: [Expense]] {
+        Dictionary(grouping: filteredExpenses) { $0.dayKey }
     }
 
-    private var sortedMonthYears: [String] {
-        // Group expenses by month-year and get the most recent date in each group
-        let monthYearWithDates = Dictionary(grouping: filteredExpenses) { $0.monthYear }
-            .mapValues { expenses in
-                expenses.map { $0.date }.max() ?? Date.distantPast
-            }
-
-        // Sort month-years by their most recent date (descending)
-        return monthYearWithDates
-            .sorted { $0.value > $1.value }
-            .map { $0.key }
+    private var sortedDays: [Date] {
+        expensesGroupedByDay.keys.sorted(by: >)
     }
 
     // MARK: - Methods
-    
-    private func deleteExpenses(at offsets: IndexSet, in monthYear: String) {
-        let expensesInSection = groupedExpenses[monthYear] ?? []
+
+    private func deleteExpenses(at offsets: IndexSet, on day: Date) {
+        let expensesInSection = expensesGroupedByDay[day] ?? []
         for index in offsets {
             modelContext.delete(expensesInSection[index])
+        }
+    }
+
+    private func dayHeaderText(for day: Date) -> String {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let expenseDay = calendar.startOfDay(for: day)
+
+        if expenseDay == today {
+            return "Today"
+        } else if let yesterday = calendar.date(byAdding: .day, value: -1, to: today),
+                  expenseDay == yesterday {
+            return "Yesterday"
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .long
+            formatter.timeStyle = .none
+            return formatter.string(from: day)
         }
     }
 }
@@ -194,10 +257,18 @@ struct ExpenseRowView: View {
             }
             
             Spacer()
-            
+
+            // Receipt photo indicator
+            if expense.receiptImagePath != nil {
+                Image(systemName: "camera.fill")
+                    .font(.caption)
+                    .foregroundColor(.blue)
+                    .padding(.trailing, 4)
+            }
+
             // Amount
             Text(expense.formattedAmount)
-                .font(.title3)
+                .font(.body)
                 .fontWeight(.semibold)
                 .foregroundStyle(.primary)
         }

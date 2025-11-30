@@ -27,10 +27,10 @@ struct SettingsView: View {
             List {
                 // Yacht Info Section
                 yachtInfoSection
-                
-                // Exchange Rate Section
-                exchangeRateSection
-                
+
+                // Receipt Scanning Section
+                receiptScanningSection
+
                 // App Info Section
                 appInfoSection
             }
@@ -46,11 +46,11 @@ struct SettingsView: View {
     private var yachtInfoSection: some View {
         Section("Yacht Information") {
             if let settings = yachtSettings {
-                LabeledContent("Yacht Name", value: settings.yachtName)
-                LabeledContent("Owner", value: settings.ownerName)
+                LabeledContent("Yacht", value: settings.yachtName)
                 LabeledContent("Owner Email", value: settings.ownerEmail)
                 LabeledContent("Captain", value: settings.captainName)
-                
+                LabeledContent("Captain Email", value: settings.captainEmail)
+
                 Button {
                     showingEditSettings = true
                 } label: {
@@ -62,28 +62,85 @@ struct SettingsView: View {
             }
         }
     }
-    
-    private var exchangeRateSection: some View {
+
+    private var receiptScanningSection: some View {
         Section {
             if let settings = yachtSettings {
-                LabeledContent("EUR to USD", value: String(format: "%.2f", settings.exchangeRateEURtoUSD))
+                // Check if iCloud is available
+                let isICloudAvailable = FileManager.default.ubiquityIdentityToken != nil
+
+                if isICloudAvailable {
+                    Toggle("Sync receipts to iCloud", isOn: Binding(
+                        get: { settings.syncReceiptsToiCloud },
+                        set: { newValue in
+                            settings.syncReceiptsToiCloud = newValue
+                            settings.touch()
+                            try? modelContext.save()
+
+                            // Migra foto se necessario
+                            if newValue {
+                                ReceiptStorageService.shared.migrateReceipts(toICloud: true)
+                            } else {
+                                ReceiptStorageService.shared.migrateReceipts(toICloud: false)
+                            }
+                        }
+                    ))
+                } else {
+                    // iCloud non disponibile - mostra info
+                    Label("iCloud Drive not available", systemImage: "icloud.slash")
+                        .foregroundColor(.secondary)
+                        .font(.subheadline)
+                }
+
+                // Storage usage
+                let localStorage = ReceiptStorageService.shared.getStorageUsed(useICloud: false)
+
+                LabeledContent("Local storage", value: localStorage.formattedByteSize)
+
+                if isICloudAvailable {
+                    let iCloudStorage = ReceiptStorageService.shared.getStorageUsed(useICloud: true)
+                    LabeledContent("iCloud storage", value: iCloudStorage.formattedByteSize)
+                }
+
+                // Claude API Key (opzionale)
+                NavigationLink {
+                    ClaudeAPISettingsView()
+                } label: {
+                    HStack {
+                        Label("Claude API (Optional)", systemImage: "brain")
+                        Spacer()
+                        if let apiKey = settings.claudeAPIKey, !apiKey.isEmpty {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                                .font(.caption)
+                        }
+                    }
+                }
+
+            } else {
+                Text("No settings configured")
+                    .foregroundStyle(.secondary)
             }
         } header: {
-            Text("Exchange Rate (Fixed)")
+            Text("Receipt Scanning")
         } footer: {
-            Text("This is a fixed exchange rate used for reference only")
+            if FileManager.default.ubiquityIdentityToken != nil {
+                Text("Enable iCloud sync to access receipt photos across all your devices")
+            } else {
+                Text("Receipt photos are saved locally on this device. iCloud sync requires Apple Developer Program.")
+            }
         }
     }
-    
+
     private var appInfoSection: some View {
         Section("About") {
             LabeledContent("Version", value: "1.0.0")
             LabeledContent("Build", value: "1")
-            
+
             Link(destination: URL(string: "https://support.apple.com")!) {
                 Label("Support", systemImage: "questionmark.circle")
             }
-            
+
             Link(destination: URL(string: "https://www.apple.com/legal/privacy/")!) {
                 Label("Privacy Policy", systemImage: "hand.raised")
             }
@@ -97,12 +154,11 @@ struct EditSettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Query private var settings: [YachtSettings]
-    
+
     @State private var yachtName = ""
-    @State private var ownerName = ""
     @State private var ownerEmail = ""
     @State private var captainName = ""
-    @State private var exchangeRate = ""
+    @State private var captainEmail = ""
     @State private var showingAlert = false
     @State private var alertMessage = ""
     
@@ -110,21 +166,14 @@ struct EditSettingsView: View {
         NavigationStack {
             Form {
                 Section("Yacht Information") {
-                    TextField("Yacht Name", text: $yachtName)
-                    TextField("Owner Name", text: $ownerName)
+                    TextField("Yacht", text: $yachtName)
                     TextField("Owner Email", text: $ownerEmail)
                         .keyboardType(.emailAddress)
                         .autocapitalization(.none)
                     TextField("Captain Name", text: $captainName)
-                }
-                
-                Section {
-                    TextField("1.10", text: $exchangeRate)
-                        .keyboardType(.decimalPad)
-                } header: {
-                    Text("Exchange Rate")
-                } footer: {
-                    Text("EUR to USD fixed rate")
+                    TextField("Captain Email", text: $captainEmail)
+                        .keyboardType(.emailAddress)
+                        .autocapitalization(.none)
                 }
             }
             .navigationTitle("Edit Settings")
@@ -157,10 +206,9 @@ struct EditSettingsView: View {
     private func loadCurrentSettings() {
         if let current = settings.first {
             yachtName = current.yachtName
-            ownerName = current.ownerName
             ownerEmail = current.ownerEmail
             captainName = current.captainName
-            exchangeRate = String(format: "%.2f", current.exchangeRateEURtoUSD)
+            captainEmail = current.captainEmail
         }
     }
     
@@ -169,27 +217,25 @@ struct EditSettingsView: View {
             showAlert("Please enter yacht name")
             return
         }
-        
+
         guard !ownerEmail.isEmpty, ownerEmail.contains("@") else {
-            showAlert("Please enter a valid email")
+            showAlert("Please enter a valid owner email")
             return
         }
-        
-        guard let rateValue = Double(exchangeRate.replacingOccurrences(of: ",", with: ".")),
-              rateValue > 0 else {
-            showAlert("Please enter a valid exchange rate")
+
+        guard !captainEmail.isEmpty, captainEmail.contains("@") else {
+            showAlert("Please enter a valid captain email")
             return
         }
-        
+
         if let current = settings.first {
             current.yachtName = yachtName
-            current.ownerName = ownerName
             current.ownerEmail = ownerEmail
             current.captainName = captainName
-            current.exchangeRateEURtoUSD = rateValue
+            current.captainEmail = captainEmail
             current.touch()
         }
-        
+
         try? modelContext.save()
         dismiss()
     }
@@ -197,6 +243,81 @@ struct EditSettingsView: View {
     private func showAlert(_ message: String) {
         alertMessage = message
         showingAlert = true
+    }
+}
+
+// MARK: - Claude API Settings View
+
+struct ClaudeAPISettingsView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    @Query private var settings: [YachtSettings]
+
+    @State private var apiKey = ""
+    @State private var showingClearConfirmation = false
+
+    var body: some View {
+        Form {
+            Section {
+                SecureField("sk-ant-api03-...", text: $apiKey)
+                    .textContentType(.password)
+                    .autocapitalization(.none)
+                    .autocorrectionDisabled()
+                    .font(.system(.body, design: .monospaced))
+            } header: {
+                Label("API Key", systemImage: "key")
+            } footer: {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Claude API will be used when Apple Vision OCR has low confidence.")
+                    Text("Get your API key from console.anthropic.com")
+                        .foregroundColor(.blue)
+                }
+            }
+
+            Section("Cost Estimate") {
+                LabeledContent("Per receipt scan", value: "~€0.005")
+                LabeledContent("Estimated yearly", value: "~€5-6")
+            }
+
+            if !apiKey.isEmpty {
+                Section {
+                    Button("Clear API Key", role: .destructive) {
+                        showingClearConfirmation = true
+                    }
+                }
+            }
+        }
+        .navigationTitle("Claude API")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Save") {
+                    saveAPIKey()
+                }
+                .fontWeight(.semibold)
+                .disabled(apiKey.isEmpty)
+            }
+        }
+        .confirmationDialog("Clear API Key?", isPresented: $showingClearConfirmation) {
+            Button("Clear", role: .destructive) {
+                apiKey = ""
+                saveAPIKey()
+            }
+        }
+        .onAppear {
+            if let currentKey = settings.first?.claudeAPIKey {
+                apiKey = currentKey
+            }
+        }
+    }
+
+    private func saveAPIKey() {
+        if let currentSettings = settings.first {
+            currentSettings.claudeAPIKey = apiKey.isEmpty ? nil : apiKey
+            currentSettings.touch()
+            try? modelContext.save()
+        }
+        dismiss()
     }
 }
 

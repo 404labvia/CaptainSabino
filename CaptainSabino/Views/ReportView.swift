@@ -21,7 +21,6 @@ struct ReportView: View {
     @State private var isGenerating = false
     @State private var generatedPDFURL: URL?
     @State private var showingShareSheet = false
-    @State private var showingMailView = false
     @State private var showingAlert = false
     @State private var alertMessage = ""
 
@@ -36,14 +35,19 @@ struct ReportView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 25) {
-                // Header
-                headerSection
-                
+                // Month Picker
+                monthPickerSection
+
+                // Generate PDF Button
+                generatePDFButton
+
+                // Send Button (appears after PDF generation)
+                if generatedPDFURL != nil {
+                    sendButton
+                }
+
                 // Preview
                 previewSection
-                
-                // Actions
-                actionsSection
             }
             .padding()
         }
@@ -52,20 +56,6 @@ struct ReportView: View {
         .sheet(isPresented: $showingShareSheet) {
             if let url = generatedPDFURL {
                 ShareSheet(items: [url])
-            }
-        }
-        .sheet(isPresented: $showingMailView) {
-            if let url = generatedPDFURL,
-               let currentSettings = settings.first {
-                MailView(
-                    pdfURL: url,
-                    recipientEmail: currentSettings.ownerEmail,
-                    subject: "Expense Report - \(monthText)",
-                    yachtName: currentSettings.yachtName
-                )
-            } else {
-                // Fallback to prevent nil view (should never happen due to sendEmail() checks)
-                EmptyView()
             }
         }
         .alert(isGenerating ? "Generating..." : "Error", isPresented: .constant(isGenerating || showingAlert)) {
@@ -110,36 +100,76 @@ struct ReportView: View {
     }
     
     // MARK: - View Components
-    
-    private var headerSection: some View {
+
+    private var monthPickerSection: some View {
         VStack(spacing: 12) {
-            Image(systemName: "doc.text.fill")
-                .font(.system(size: 60))
-                .foregroundStyle(.blue)
+            Text("Select Month")
+                .font(.headline)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-            Text("Expense Report")
-                .font(.title)
-                .fontWeight(.bold)
-
-            // Month selector button
             Button {
                 showingMonthPicker = true
             } label: {
-                HStack(spacing: 8) {
+                HStack {
                     Image(systemName: "calendar")
-                        .font(.subheadline)
+                        .font(.title3)
                     Text(monthText)
                         .font(.title3)
                         .fontWeight(.semibold)
+                    Spacer()
                     Image(systemName: "chevron.down")
-                        .font(.caption)
+                        .font(.subheadline)
                 }
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+                .foregroundStyle(.primary)
+                .padding()
                 .background(Color(.secondarySystemBackground))
-                .cornerRadius(10)
+                .cornerRadius(12)
             }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(15)
+        .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+    }
+
+    private var generatePDFButton: some View {
+        Button {
+            generatePDF()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "doc.badge.plus")
+                    .font(.title3)
+                Text("Generate PDF")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(Color.blue)
+            .foregroundStyle(.white)
+            .cornerRadius(12)
+            .shadow(color: .black.opacity(0.2), radius: 6, x: 0, y: 3)
+        }
+        .disabled(isGenerating)
+    }
+
+    private var sendButton: some View {
+        Button {
+            showingShareSheet = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "paperplane.fill")
+                    .font(.title3)
+                Text("Send")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(Color.green)
+            .foregroundStyle(.white)
+            .cornerRadius(12)
+            .shadow(color: .black.opacity(0.2), radius: 6, x: 0, y: 3)
         }
     }
     
@@ -205,59 +235,7 @@ struct ReportView: View {
         .padding()
         .background(Color(.systemBackground))
         .cornerRadius(15)
-        .shadow(radius: 2)
-    }
-    
-    private var actionsSection: some View {
-        VStack(spacing: 12) {
-            Button {
-                generatePDF()
-            } label: {
-                HStack {
-                    Image(systemName: "doc.badge.plus")
-                    Text("Generate PDF")
-                        .fontWeight(.semibold)
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.blue)
-                .foregroundStyle(.white)
-                .cornerRadius(12)
-            }
-            .disabled(isGenerating)
-            
-            if generatedPDFURL != nil {
-                HStack(spacing: 12) {
-                    Button {
-                        sendEmail()
-                    } label: {
-                        HStack {
-                            Image(systemName: "envelope")
-                            Text("Send Email")
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.green)
-                        .foregroundStyle(.white)
-                        .cornerRadius(12)
-                    }
-                    
-                    Button {
-                        showingShareSheet = true
-                    } label: {
-                        HStack {
-                            Image(systemName: "square.and.arrow.up")
-                            Text("Share")
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.orange)
-                        .foregroundStyle(.white)
-                        .cornerRadius(12)
-                    }
-                }
-            }
-        }
+        .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
     }
     
     // MARK: - Methods
@@ -267,9 +245,9 @@ struct ReportView: View {
             showAlert("Settings not configured")
             return
         }
-        
+
         isGenerating = true
-        
+
         Task {
             do {
                 let pdfURL = try PDFService.shared.generateExpenseReport(
@@ -281,8 +259,6 @@ struct ReportView: View {
                 await MainActor.run {
                     self.generatedPDFURL = pdfURL
                     self.isGenerating = false
-                    // Auto-show share sheet after PDF generation
-                    self.showingShareSheet = true
                 }
             } catch {
                 await MainActor.run {
@@ -291,28 +267,6 @@ struct ReportView: View {
                 }
             }
         }
-    }
-    
-    private func sendEmail() {
-        // Check if device can send email
-        guard EmailService.shared.canSendEmail() else {
-            showAlert("This device is not configured to send email. Please set up Mail app first.")
-            return
-        }
-
-        // Check if we have all required data
-        guard generatedPDFURL != nil else {
-            showAlert("Please generate a PDF first")
-            return
-        }
-
-        guard settings.first != nil else {
-            showAlert("Settings not configured")
-            return
-        }
-
-        // All checks passed, show mail view
-        showingMailView = true
     }
 
     private func showAlert(_ message: String) {

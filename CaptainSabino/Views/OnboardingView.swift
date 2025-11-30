@@ -15,9 +15,9 @@ struct OnboardingView: View {
     @Query private var settings: [YachtSettings]
     
     @State private var yachtName = ""
-    @State private var ownerName = ""
     @State private var ownerEmail = ""
     @State private var captainName = ""
+    @State private var captainEmail = ""
     @State private var showingAlert = false
     @State private var alertMessage = ""
     
@@ -84,22 +84,13 @@ struct OnboardingView: View {
         VStack(spacing: 20) {
             // Yacht Name
             VStack(alignment: .leading, spacing: 8) {
-                Label("Yacht Name", systemImage: "sailboat")
+                Label("Yacht", systemImage: "sailboat")
                     .font(.headline)
                 TextField("Enter yacht name", text: $yachtName)
                     .textFieldStyle(.roundedBorder)
                     .autocorrectionDisabled()
             }
-            
-            // Owner Name
-            VStack(alignment: .leading, spacing: 8) {
-                Label("Owner Name", systemImage: "person")
-                    .font(.headline)
-                TextField("Enter owner name", text: $ownerName)
-                    .textFieldStyle(.roundedBorder)
-                    .autocorrectionDisabled()
-            }
-            
+
             // Owner Email
             VStack(alignment: .leading, spacing: 8) {
                 Label("Owner Email", systemImage: "envelope")
@@ -110,13 +101,24 @@ struct OnboardingView: View {
                     .autocapitalization(.none)
                     .autocorrectionDisabled()
             }
-            
+
             // Captain Name
             VStack(alignment: .leading, spacing: 8) {
                 Label("Captain Name", systemImage: "person.badge.shield.checkmark")
                     .font(.headline)
                 TextField("Enter captain name", text: $captainName)
                     .textFieldStyle(.roundedBorder)
+                    .autocorrectionDisabled()
+            }
+
+            // Captain Email
+            VStack(alignment: .leading, spacing: 8) {
+                Label("Captain Email", systemImage: "envelope.badge")
+                    .font(.headline)
+                TextField("captain@example.com", text: $captainEmail)
+                    .textFieldStyle(.roundedBorder)
+                    .keyboardType(.emailAddress)
+                    .autocapitalization(.none)
                     .autocorrectionDisabled()
             }
         }
@@ -147,40 +149,49 @@ struct OnboardingView: View {
             showAlert("Please enter yacht name")
             return
         }
-        
-        guard !ownerName.isEmpty else {
-            showAlert("Please enter owner name")
-            return
-        }
-        
+
         guard !ownerEmail.isEmpty, ownerEmail.contains("@") else {
-            showAlert("Please enter a valid email")
+            showAlert("Please enter a valid owner email")
             return
         }
-        
+
         guard !captainName.isEmpty else {
             showAlert("Please enter captain name")
             return
         }
-        
-        // Save or update settings
-        if let existingSettings = settings.first {
-            existingSettings.yachtName = yachtName
-            existingSettings.ownerName = ownerName
-            existingSettings.ownerEmail = ownerEmail
-            existingSettings.captainName = captainName
-            existingSettings.touch()
-        } else {
-            let newSettings = YachtSettings(
-                yachtName: yachtName,
-                ownerName: ownerName,
-                ownerEmail: ownerEmail,
-                captainName: captainName
-            )
-            modelContext.insert(newSettings)
+
+        guard !captainEmail.isEmpty, captainEmail.contains("@") else {
+            showAlert("Please enter a valid captain email")
+            return
         }
-        
-        try? modelContext.save()
+
+        // Save or update settings
+        do {
+            if let existingSettings = settings.first {
+                existingSettings.yachtName = yachtName
+                existingSettings.ownerEmail = ownerEmail
+                existingSettings.captainName = captainName
+                existingSettings.captainEmail = captainEmail
+                existingSettings.touch()
+            } else {
+                let newSettings = YachtSettings(
+                    yachtName: yachtName,
+                    ownerEmail: ownerEmail,
+                    captainName: captainName,
+                    captainEmail: captainEmail,
+                    syncReceiptsToiCloud: false,
+                    claudeAPIKey: nil
+                )
+                modelContext.insert(newSettings)
+            }
+
+            try modelContext.save()
+            print("✅ Settings saved successfully")
+            print("✅ Settings complete: \(settings.first?.isComplete ?? false)")
+        } catch {
+            print("❌ Error saving settings: \(error)")
+            showAlert("Error saving settings: \(error.localizedDescription)")
+        }
     }
     
     private func showAlert(_ message: String) {

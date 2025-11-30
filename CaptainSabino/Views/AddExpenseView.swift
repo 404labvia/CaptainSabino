@@ -10,18 +10,24 @@ import SwiftData
 
 struct AddExpenseView: View {
     // MARK: - Properties
-    
+
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Query private var categories: [Category]
-    
+    @Query private var settings: [YachtSettings]
+
+    // Prefilled data from voice input or OCR (optional)
+    var prefilledAmount: Double?
+    var prefilledCategory: Category?
+    var receiptImage: UIImage?
+
     @State private var amount = ""
     @State private var selectedCategory: Category?
     @State private var date = Date()
     @State private var notes = ""
     @State private var showingAlert = false
     @State private var alertMessage = ""
-    
+
     // MARK: - Body
     
     var body: some View {
@@ -70,6 +76,24 @@ struct AddExpenseView: View {
                     TextEditor(text: $notes)
                         .frame(height: 100)
                 }
+
+                // Receipt Photo Section (if present)
+                if receiptImage != nil {
+                    Section("Receipt Photo") {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+
+                            Text("Receipt photo attached")
+                                .foregroundColor(.secondary)
+
+                            Spacer()
+
+                            Image(systemName: "photo")
+                                .foregroundColor(.blue)
+                        }
+                    }
+                }
             }
             .navigationTitle("New Expense")
             .navigationBarTitleDisplayMode(.inline)
@@ -92,11 +116,26 @@ struct AddExpenseView: View {
             } message: {
                 Text(alertMessage)
             }
+            .onAppear {
+                loadPrefilledData()
+            }
         }
     }
     
     // MARK: - Methods
-    
+
+    private func loadPrefilledData() {
+        // Load prefilled amount
+        if let prefilledAmount = prefilledAmount {
+            amount = String(format: "%.2f", prefilledAmount)
+        }
+
+        // Load prefilled category
+        if let prefilledCategory = prefilledCategory {
+            selectedCategory = prefilledCategory
+        }
+    }
+
     private func saveExpense() {
         // Validate amount
         guard let amountValue = Double(amount.replacingOccurrences(of: ",", with: ".")),
@@ -104,23 +143,37 @@ struct AddExpenseView: View {
             showAlert("Please enter a valid amount greater than 0")
             return
         }
-        
+
         // Validate category
         guard let selectedCategory = selectedCategory else {
             showAlert("Please select a category")
             return
         }
-        
+
+        // Save receipt photo if present
+        var receiptImagePath: String?
+        if let receiptImage = receiptImage {
+            let useICloud = settings.first?.syncReceiptsToiCloud ?? false
+            receiptImagePath = ReceiptStorageService.shared.saveReceipt(
+                image: receiptImage,
+                date: date,
+                amount: amountValue,
+                categoryName: selectedCategory.name,
+                useICloud: useICloud
+            )
+        }
+
         // Create and save expense
         let newExpense = Expense(
             amount: amountValue,
             category: selectedCategory,
             date: date,
-            notes: notes.trimmingCharacters(in: .whitespacesAndNewlines)
+            notes: notes.trimmingCharacters(in: .whitespacesAndNewlines),
+            receiptImagePath: receiptImagePath
         )
-        
+
         modelContext.insert(newExpense)
-        
+
         do {
             try modelContext.save()
             dismiss()
