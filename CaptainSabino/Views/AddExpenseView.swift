@@ -123,7 +123,7 @@ struct AddExpenseView: View {
         .cornerRadius(12)
     }
 
-    /// Category Section - Griglia 3x3 con icone
+    /// Category Section - Griglia 4 colonne con icone
     private var categorySection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("CATEGORY")
@@ -132,6 +132,7 @@ struct AddExpenseView: View {
                 .foregroundStyle(.secondary)
 
             let columns = [
+                GridItem(.flexible()),
                 GridItem(.flexible()),
                 GridItem(.flexible()),
                 GridItem(.flexible())
@@ -171,12 +172,12 @@ struct AddExpenseView: View {
 
             // Quick buttons + calendario
             HStack(spacing: 12) {
-                // 2 giorni fa
+                // Oggi (prima posizione)
                 QuickDateButton(
-                    date: Calendar.current.date(byAdding: .day, value: -2, to: Date()) ?? Date(),
-                    isSelected: isSameDay(date, Calendar.current.date(byAdding: .day, value: -2, to: Date()) ?? Date())
+                    date: Date(),
+                    isSelected: isSameDay(date, Date())
                 ) {
-                    date = Calendar.current.date(byAdding: .day, value: -2, to: Date()) ?? Date()
+                    date = Date()
                 }
 
                 // Ieri
@@ -187,12 +188,12 @@ struct AddExpenseView: View {
                     date = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
                 }
 
-                // Oggi
+                // 2 giorni fa
                 QuickDateButton(
-                    date: Date(),
-                    isSelected: isSameDay(date, Date())
+                    date: Calendar.current.date(byAdding: .day, value: -2, to: Date()) ?? Date(),
+                    isSelected: isSameDay(date, Calendar.current.date(byAdding: .day, value: -2, to: Date()) ?? Date())
                 ) {
-                    date = Date()
+                    date = Calendar.current.date(byAdding: .day, value: -2, to: Date()) ?? Date()
                 }
 
                 // Calendario
