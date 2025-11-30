@@ -639,7 +639,7 @@ class ReceiptOCRService {
 
         // Costruisci request body
         let requestBody: [String: Any] = [
-            "model": "claude-3-haiku-20240307",
+            "model": "claude-haiku-4-5-20251001",  // Claude 4.5 Haiku - Best accuracy
             "max_tokens": 200,
             "messages": [
                 [
