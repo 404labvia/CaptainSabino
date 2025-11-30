@@ -357,11 +357,17 @@ struct ContentView: View {
         )
 
         // Step 3: If amount not found AND Claude API key exists, retry with Claude
+        print("🔍 DEBUG - Amount: \(receiptData.amount?.description ?? "nil")")
+        print("🔍 DEBUG - Settings count: \(settings.count)")
+        print("🔍 DEBUG - API Key exists: \(settings.first?.claudeAPIKey != nil)")
+        print("🔍 DEBUG - API Key length: \(settings.first?.claudeAPIKey?.count ?? 0)")
+
         if receiptData.amount == nil,
            let claudeAPIKey = settings.first?.claudeAPIKey,
            !claudeAPIKey.isEmpty {
 
             print("⚠️ Amount not found, retrying with Claude API...")
+            print("🔑 Claude API key found: \(String(claudeAPIKey.prefix(15)))... (length: \(claudeAPIKey.count))")
 
             // Update message to show AI retry
             await MainActor.run {
@@ -378,6 +384,17 @@ struct ContentView: View {
                 print("✅ Amount found with Claude API: €\(receiptData.amount!)")
             } else {
                 print("❌ Amount still not found even with Claude")
+            }
+        } else {
+            // Debug: why Claude API was not called
+            if receiptData.amount != nil {
+                print("ℹ️ Claude API not needed (amount found by Apple Vision)")
+            } else if settings.first?.claudeAPIKey == nil {
+                print("❌ Claude API key is NIL in settings!")
+            } else if settings.first?.claudeAPIKey?.isEmpty == true {
+                print("❌ Claude API key is EMPTY string!")
+            } else {
+                print("❌ Unknown reason for not calling Claude")
             }
         }
 
