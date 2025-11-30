@@ -25,6 +25,18 @@ enum ConfidenceLevel {
     case low     // <50%
 }
 
+enum CategoryMatchStrength {
+    case strong  // Score >= 20 (keyword specifiche tipo "ENI", "CONAD")
+    case weak    // Score 1-19 (keyword generiche tipo "BAR")
+    case none    // Score = 0 (nessun match)
+}
+
+struct CategoryMatch {
+    var categoryName: String?
+    var score: Int
+    var strength: CategoryMatchStrength
+}
+
 struct ReceiptData {
     var amount: Double?
     var categoryName: String?
@@ -57,30 +69,42 @@ class ReceiptOCRService {
     /// Include brand europei comuni e parole chiave generiche
     private let categoryKeywords: [String: [String]] = [
         "Supermarket": [
-            // Italia
-            "CONAD", "CARREFOUR", "ESSELUNGA", "COOP", "LIDL", "EUROSPIN",
-            "MD", "PENNY", "AUCHAN", "SIMPLY", "PAM", "SIGMA", "FAMILA",
+            // Italia - grandi catene
+            "CONAD", "COOP", "ESSELUNGA", "CARREFOUR", "EUROSPIN",
+            "LIDL", "MD", "PENNY", "ALDI", "AUCHAN", "SIMPLY",
+            "PAM", "SIGMA", "FAMILA", "BENNET", "IPER", "IPERAL",
+            "TODIS", "TUODI", "IN'S", "DESPAR", "SPAR", "INTERSPAR",
+            "IL GIGANTE", "GIGANTE", "PRIX", "U2", "DECO'",
+            "TIGRE", "TIGROS", "DOK", "CADORO", "POLI",
+            "OASI", "ALI'", "ALIPER", "DIMEGLIO", "SIDIS",
+            // Mini market e discount
+            "MINIMARKET", "ALIMENTARI", "DISCOUNT", "MARKET",
             // Francia
-            "LECLERC", "INTERMARCHE", "ALDI", "MONOPRIX", "FRANPRIX",
+            "LECLERC", "INTERMARCHE", "MONOPRIX", "FRANPRIX", "CASINO",
             // Spagna
-            "MERCADONA", "DIA", "ALCAMPO",
+            "MERCADONA", "DIA", "ALCAMPO", "CARREFOUR EXPRESS",
             // Germania
-            "REWE", "EDEKA", "KAUFLAND",
+            "REWE", "EDEKA", "KAUFLAND", "NETTO", "NORMA",
             // UK
-            "TESCO", "SAINSBURY", "ASDA",
+            "TESCO", "SAINSBURY", "ASDA", "MORRISONS", "WAITROSE",
             // Generici
-            "SUPERMARKET", "SUPERMERCATO", "SUPERMARKT", "MARKET", "GROCERY"
+            "SUPERMARKET", "SUPERMERCATO", "SUPERMARKT", "GROCERY", "GROCERIES"
         ],
 
         "Fuel": [
+            // Brand Italia - principali
+            "ENI", "AGIP", "Q8", "TAMOIL", "IP", "ESSO", "SHELL",
+            "ERG", "TOTALERG", "API", "ITALGAS", "PETRONAS",
+            "POMPE BIANCHE", "SELF SERVICE", "SELF 24",
             // Brand internazionali
-            "ESSO", "ENI", "SHELL", "AGIP", "Q8", "TAMOIL", "BP", "TOTAL",
-            "REPSOL", "IP", "KUWAIT", "GULF", "TEXACO", "MOBIL",
-            // Italia
-            "ERG", "API", "ESSO", "PETRONAS",
-            // Generici
-            "FUEL", "CARBURANTE", "BENZINA", "DIESEL", "GASOLIO",
-            "STATION", "DISTRIBUTORE", "PETROL", "GAS STATION"
+            "BP", "TOTAL", "REPSOL", "CEPSA", "GALP",
+            "GULF", "TEXACO", "MOBIL", "KUWAIT", "LUKOIL",
+            "AVIA", "JET", "ARAL", "OMV", "MOL",
+            // Parole su scontrini carburante
+            "CARBURANTE", "BENZINA", "DIESEL", "GASOLIO", "GPL",
+            "RIFORNIMENTO", "FUEL", "PETROL", "GASOLINE", "GAS",
+            "STATION", "DISTRIBUTORE", "STAZIONE SERVIZIO",
+            "LITRI", "LITER", "LITERS", "LT", "SELF", "SERVITO"
         ],
 
         "Pharmacy": [
@@ -90,15 +114,47 @@ class ReceiptOCRService {
         ],
 
         "Food": [
-            "RISTORANTE", "RESTAURANT", "TRATTORIA", "PIZZERIA", "OSTERIA",
-            "BAR", "CAFETERIA", "CAFE", "CAFFE", "TAVERNA", "BISTRO",
-            "BRASSERIE", "PUB", "GASTHAUS", "TAVOLA", "CUCINA",
-            "MCDONALD", "BURGER", "KFC", "SUBWAY"
+            // Ristoranti italiani
+            "RISTORANTE", "TRATTORIA", "PIZZERIA", "OSTERIA", "TAVERNA",
+            "LOCANDA", "AGRITURISMO", "TAVOLA CALDA", "ROSTICCERIA",
+            "PANINOTECA", "BRACERIA", "PESCHERIA", "ENOTECA",
+            // Bar e caffè
+            "BAR", "CAFFE", "CAFFETTERIA", "PASTICCERIA", "GELATERIA",
+            "LATTERIA", "SALUMERIA", "FORNO", "PANIFICIO", "PANETTERIA",
+            // Parole sugli scontrini di ristoranti/bar
+            "COPERTO", "SERVIZIO", "TAVOLO", "COPERTI", "MENU", "MENÙ",
+            "CAMERIERE", "RICEVUTA FISCALE", "SCONTRINO FISCALE",
+            // Tipologie ristorazione
+            "STREET FOOD", "FAST FOOD", "SELF SERVICE", "BUFFET",
+            // Internazionali comuni
+            "RESTAURANT", "CAFETERIA", "CAFE", "BISTRO", "BRASSERIE",
+            "PUB", "GASTHAUS", "TAVOLA", "CUCINA", "GRILL",
+            // Catene fast food
+            "MCDONALD", "MCDONALDS", "BURGER KING", "KFC", "SUBWAY",
+            "AUTOGRILL", "ROADHOUSE", "OLD WILD WEST", "CIGIERRE",
+            // Tipi di locali
+            "COCKTAIL BAR", "WINE BAR", "LOUNGE", "SNACK BAR",
+            "BEACH BAR", "RISTOBAR", "BACARO"
         ],
 
         "Chandlery": [
-            "CHANDLER", "NAUTICA", "MARINE", "SHIP", "BOAT", "YACHT",
-            "CANTIERE", "SHIPYARD", "MARINERIA", "NAVALE", "MARITIME"
+            // Forniture nautiche
+            "CHANDLER", "CHANDLERY", "NAUTICA", "MARINE", "MARINERIA",
+            "SHIP CHANDLER", "SHIP SUPPLIER", "FORNITURE NAVALI",
+            // Termini nautici
+            "YACHT", "BOAT", "BARCA", "IMBARCAZIONE", "NAVE",
+            "SHIP", "SAILING", "VELA", "MOTOR", "MOTORE",
+            // Luoghi nautici
+            "CANTIERE", "SHIPYARD", "BOATYARD", "MARINA",
+            "PORTO", "PORT", "HARBOUR", "HARBOR", "DOCK",
+            // Prodotti nautici comuni
+            "VELERIA", "SAILMAKER", "CORDAME", "ROPE", "CIMA",
+            "ANCORA", "ANCHOR", "CATENA", "CHAIN",
+            "VERNICE", "ANTIVEGETATIVA", "ANTIFOULING", "PAINT",
+            "PARABORDO", "FENDER", "SALVAGENTE", "LIFE JACKET",
+            // Termini generici
+            "NAVALE", "MARITIME", "MARITTIMO", "DIPORTO",
+            "ACCESSORIES MARINE", "RICAMBI NAUTICI"
         ],
 
         "Water Test": [
@@ -153,18 +209,29 @@ class ReceiptOCRService {
         // Step 2: Extract amount
         let extractedAmount = extractAmount(from: visionText)
 
-        // Step 3: Keyword matching per categoria
-        let matchedCategory = matchCategory(from: visionText)
+        // Step 3: Keyword matching per categoria (ora con score e strength)
+        let categoryMatch = matchCategory(from: visionText)
 
-        // Step 4: Determina confidence
-        let confidence = determineConfidence(
-            hasAmount: extractedAmount != nil,
-            hasCategory: matchedCategory != nil
-        )
+        // Step 4: Determina se serve Claude API (THRESHOLD LOGIC)
+        let shouldUseClaude: Bool
 
-        // Step 5: Se Claude disponibile, usa API (per auto-retry quando amount è nil)
-        if let apiKey = claudeAPIKey, !apiKey.isEmpty {
-            print("✅ Claude API key provided - calling Claude API")
+        if extractedAmount == nil {
+            // SEMPRE usare Claude se amount non trovato
+            shouldUseClaude = true
+            print("🔄 Amount not found → Claude needed")
+        } else if categoryMatch.strength == .strong {
+            // STRONG match + amount trovato = NON serve Claude
+            shouldUseClaude = false
+            print("✅ Strong category match + amount found → Claude NOT needed")
+        } else {
+            // WEAK o NO match = usare Claude per conferma categoria
+            shouldUseClaude = true
+            print("🔄 Weak/no category match → Claude needed")
+        }
+
+        // Step 5: Usa Claude se necessario E se API key disponibile
+        if shouldUseClaude, let apiKey = claudeAPIKey, !apiKey.isEmpty {
+            print("📞 Calling Claude API...")
             return await processWithClaudeAPI(
                 image: image,
                 apiKey: apiKey,
@@ -172,13 +239,19 @@ class ReceiptOCRService {
             )
         }
 
-        // Ritorna risultato Apple Vision + Keywords
+        // Step 6: Determina confidence del risultato Apple Vision
+        let confidence = determineConfidence(
+            hasAmount: extractedAmount != nil,
+            hasCategory: categoryMatch.categoryName != nil
+        )
+
+        // Ritorna risultato Apple Vision + Keywords (senza Claude)
         return ReceiptData(
             amount: extractedAmount,
-            categoryName: matchedCategory,
+            categoryName: categoryMatch.categoryName,
             fullText: visionText,
             confidence: confidence,
-            ocrSource: matchedCategory != nil ? .hybrid : .appleVision
+            ocrSource: categoryMatch.categoryName != nil ? .hybrid : .appleVision
         )
     }
 
@@ -368,10 +441,10 @@ class ReceiptOCRService {
 
     // MARK: - Category Matching
 
-    /// Trova la categoria più probabile dal testo
+    /// Trova la categoria più probabile dal testo con score
     /// - Parameter text: Testo OCR
-    /// - Returns: Nome categoria o nil
-    private func matchCategory(from text: String) -> String? {
+    /// - Returns: CategoryMatch con categoria, score e strength
+    private func matchCategory(from text: String) -> CategoryMatch {
         let normalizedText = text.uppercased()
 
         var categoryScores: [String: Int] = [:]
@@ -392,14 +465,33 @@ class ReceiptOCRService {
             }
         }
 
-        // Ritorna categoria con score più alto
+        // Trova categoria con score più alto
         if let bestMatch = categoryScores.max(by: { $0.value < $1.value }) {
-            print("✅ Categoria matched: \(bestMatch.key) (score: \(bestMatch.value))")
-            return bestMatch.key
+            let score = bestMatch.value
+
+            // Determina strength del match
+            let strength: CategoryMatchStrength
+            if score >= 20 {
+                strength = .strong
+                print("✅ STRONG match: \(bestMatch.key) (score: \(score)) - no Claude needed")
+            } else {
+                strength = .weak
+                print("⚠️ WEAK match: \(bestMatch.key) (score: \(score)) - Claude recommended")
+            }
+
+            return CategoryMatch(
+                categoryName: bestMatch.key,
+                score: score,
+                strength: strength
+            )
         }
 
-        print("⚠️ Nessuna categoria matched")
-        return nil
+        print("⚠️ NO match - Claude needed")
+        return CategoryMatch(
+            categoryName: nil,
+            score: 0,
+            strength: .none
+        )
     }
 
     // MARK: - Confidence Calculation
@@ -496,22 +588,32 @@ class ReceiptOCRService {
                         [
                             "type": "text",
                             "text": """
-                            Extract the TOTAL PAID AMOUNT (in euros) and CATEGORY from this receipt.
+                            Extract the TOTAL PAID AMOUNT (in euros) and CATEGORY from this receipt image.
 
-                            IMPORTANT for AMOUNT:
-                            - Look for "PAGATO", "CARTA", "CONTANTI", "BANCOMAT", "TOTALE" (NOT "SUBTOTALE")
-                            - This is the final amount paid including tax/IVA
+                            AMOUNT EXTRACTION:
+                            - Look for: "PAGATO", "CARTA", "CONTANTI", "BANCOMAT", "TOTALE" (NOT "SUBTOTALE")
+                            - This is the final amount paid INCLUDING tax/IVA
                             - Format: just the number (e.g., 45.50)
 
-                            IMPORTANT for CATEGORY:
-                            - Look at merchant name and items
-                            - Available categories: Supermarket, Fuel, Pharmacy, Food, Crew, Chandlery, Water Test, Welder, Tender Fuel, Fly
+                            CATEGORY CLASSIFICATION:
+                            Classify into ONE of these EXACT categories based on merchant name, items, and context:
 
-                            Reply ONLY with JSON format:
-                            {"amount": 45.50, "category": "Supermarket"}
+                            - "Food" → Restaurants, bars, pizzerias, cafes, trattorias. Look for: RISTORANTE, BAR, PIZZERIA, COPERTO, SERVIZIO, TAVOLO, CAMERIERE
+                            - "Supermarket" → Grocery stores. Look for: CONAD, COOP, ESSELUNGA, CARREFOUR, LIDL, EUROSPIN, ALIMENTARI, MARKET
+                            - "Fuel" → Gas stations. Look for: ENI, AGIP, Q8, SHELL, ESSO, TAMOIL, IP, CARBURANTE, BENZINA, DIESEL, LITRI
+                            - "Chandlery" → Marine supplies, yacht equipment. Look for: NAUTICA, MARINE, SHIP CHANDLER, CANTIERE, VELERIA, ANCORA, PARABORDO
+                            - "Pharmacy" → Pharmacies and drugstores. Look for: FARMACIA, PHARMACY, PARAFARMACIA
+                            - "Water Test" → Water analysis labs. Look for: WATER TEST, ANALISI, LABORATORIO, TEST ACQUA
+                            - "Welder" → Welding services, metalwork. Look for: SALDATURE, WELDING, CARPENTERIA
+                            - "Tender Fuel" → Dinghy/tender fuel. Look for: TENDER, GOMMONE, DINGHY
+                            - "Fly" → Airports, airlines. Look for: AIRPORT, AEROPORTO, AIRLINE, FLIGHT, VOLO
+                            - "Crew" → Crew salaries and payroll. Look for: SALARY, STIPENDIO, CREW, EQUIPAGGIO
 
-                            If you cannot determine amount or category, use null.
-                            Example: {"amount": null, "category": "Fuel"}
+                            Reply ONLY with JSON format (no additional text):
+                            {"amount": 45.50, "category": "Food"}
+
+                            If you cannot determine amount or category, use null:
+                            {"amount": null, "category": "Supermarket"}
                             """
                         ]
                     ]
