@@ -19,6 +19,7 @@ struct AddExpenseView: View {
     // Prefilled data from voice input or OCR (optional)
     var prefilledAmount: Double?
     var prefilledCategory: Category?
+    var prefilledDate: Date?
     var receiptImage: UIImage?
 
     @State private var amount = ""
@@ -133,6 +134,11 @@ struct AddExpenseView: View {
         // Load prefilled category
         if let prefilledCategory = prefilledCategory {
             selectedCategory = prefilledCategory
+        }
+
+        // Load prefilled date
+        if let prefilledDate = prefilledDate {
+            date = prefilledDate
         }
     }
 

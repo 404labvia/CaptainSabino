@@ -28,12 +28,14 @@ enum ConfidenceLevel {
 struct ReceiptData {
     var amount: Double?
     var categoryName: String?
+    var date: Date?
     var fullText: String
     var confidence: ConfidenceLevel
     var ocrSource: OCRSource
 
     var hasAmount: Bool { amount != nil }
     var hasCategory: Bool { categoryName != nil }
+    var hasDate: Bool { date != nil }
 }
 
 // MARK: - Receipt OCR Service
@@ -144,6 +146,7 @@ class ReceiptOCRService {
             return ReceiptData(
                 amount: nil,
                 categoryName: nil,
+                date: nil,
                 fullText: "",
                 confidence: .low,
                 ocrSource: .appleVision
@@ -153,13 +156,17 @@ class ReceiptOCRService {
         // Step 2: Extract amount
         let extractedAmount = extractAmount(from: visionText)
 
-        // Step 3: Keyword matching per categoria
+        // Step 3: Extract date
+        let extractedDate = extractDate(from: visionText)
+
+        // Step 4: Keyword matching per categoria
         let matchedCategory = matchCategory(from: visionText)
 
-        // Step 4: Determina confidence
+        // Step 5: Determina confidence
         let confidence = determineConfidence(
             hasAmount: extractedAmount != nil,
-            hasCategory: matchedCategory != nil
+            hasCategory: matchedCategory != nil,
+            hasDate: extractedDate != nil
         )
 
         // Step 5: Se low confidence e Claude disponibile, usa API
@@ -175,6 +182,7 @@ class ReceiptOCRService {
         return ReceiptData(
             amount: extractedAmount,
             categoryName: matchedCategory,
+            date: extractedDate,
             fullText: visionText,
             confidence: confidence,
             ocrSource: matchedCategory != nil ? .hybrid : .appleVision
@@ -365,6 +373,143 @@ class ReceiptOCRService {
         return amount
     }
 
+    // MARK: - Date Extraction
+
+    /// Estrae la data dallo scontrino
+    /// - Parameter text: Testo OCR
+    /// - Returns: Data estratta o nil
+    private func extractDate(from text: String) -> Date? {
+        let normalizedText = text.uppercased()
+
+        // Pattern per date europee (supporta /, -, .)
+        // Formati: dd/MM/yyyy, dd-MM-yyyy, dd.MM.yyyy
+        // Supporta anche anni a 2 cifre: dd/MM/yy
+        let datePatterns = [
+            // Pattern con anno a 4 cifre
+            "(\\d{1,2})[/\\-\\.](\\d{1,2})[/\\-\\.](\\d{4})",
+            // Pattern con anno a 2 cifre
+            "(\\d{1,2})[/\\-\\.](\\d{1,2})[/\\-\\.](\\d{2})"
+        ]
+
+        var foundDates: [(date: Date, position: Int)] = []
+
+        for pattern in datePatterns {
+            if let dates = extractAllDatesWithRegex(pattern: pattern, from: text) {
+                foundDates.append(contentsOf: dates)
+            }
+        }
+
+        // Se non abbiamo trovato date, ritorna nil
+        guard !foundDates.isEmpty else {
+            print("❌ Nessuna data trovata")
+            return nil
+        }
+
+        // Ordina per posizione (prima nel testo = più probabile sia la data di emissione)
+        foundDates.sort { $0.position < $1.position }
+
+        // Prendi la prima data valida
+        if let firstDate = foundDates.first {
+            print("✅ Data trovata: \(formatDate(firstDate.date))")
+            return firstDate.date
+        }
+
+        return nil
+    }
+
+    /// Estrae tutte le date con regex e le valida
+    /// - Parameters:
+    ///   - pattern: Regex pattern
+    ///   - text: Testo da cercare
+    /// - Returns: Array di date trovate con posizione
+    private func extractAllDatesWithRegex(pattern: String, from text: String) -> [(date: Date, position: Int)]? {
+        guard let regex = try? NSRegularExpression(pattern: pattern) else {
+            return nil
+        }
+
+        let range = NSRange(text.startIndex..., in: text)
+        let matches = regex.matches(in: text, range: range)
+
+        let dates = matches.compactMap { match -> (date: Date, position: Int)? in
+            // Estrai giorno, mese, anno
+            guard let dayRange = Range(match.range(at: 1), in: text),
+                  let monthRange = Range(match.range(at: 2), in: text),
+                  let yearRange = Range(match.range(at: 3), in: text) else {
+                return nil
+            }
+
+            let dayString = String(text[dayRange])
+            let monthString = String(text[monthRange])
+            let yearString = String(text[yearRange])
+
+            guard let day = Int(dayString),
+                  let month = Int(monthString),
+                  var year = Int(yearString) else {
+                return nil
+            }
+
+            // Se anno a 2 cifre, converti in 4 cifre
+            // Assumiamo 2000-2099 per anni 00-99
+            if year < 100 {
+                year += 2000
+            }
+
+            // Valida la data
+            guard let validDate = createDate(day: day, month: month, year: year) else {
+                return nil
+            }
+
+            // Ritorna data con posizione nel testo
+            return (date: validDate, position: match.range.location)
+        }
+
+        return dates.isEmpty ? nil : dates
+    }
+
+    /// Crea una data validandola
+    /// - Parameters:
+    ///   - day: Giorno (1-31)
+    ///   - month: Mese (1-12)
+    ///   - year: Anno (es. 2024)
+    /// - Returns: Data valida o nil
+    private func createDate(day: Int, month: Int, year: Int) -> Date? {
+        // Valida range
+        guard day >= 1 && day <= 31,
+              month >= 1 && month <= 12,
+              year >= 1900 && year <= 2100 else {
+            return nil
+        }
+
+        var components = DateComponents()
+        components.day = day
+        components.month = month
+        components.year = year
+        components.hour = 12 // Imposta mezzogiorno per evitare problemi di timezone
+
+        let calendar = Calendar.current
+        guard let date = calendar.date(from: components) else {
+            return nil
+        }
+
+        // Verifica che la data sia reale (es. 31/02 non è valido)
+        let resultComponents = calendar.dateComponents([.day, .month, .year], from: date)
+        guard resultComponents.day == day,
+              resultComponents.month == month,
+              resultComponents.year == year else {
+            return nil
+        }
+
+        return date
+    }
+
+    /// Formatta una data per il log
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter.string(from: date)
+    }
+
     // MARK: - Category Matching
 
     /// Trova la categoria più probabile dal testo
@@ -407,8 +552,9 @@ class ReceiptOCRService {
     /// - Parameters:
     ///   - hasAmount: Se l'importo è stato trovato
     ///   - hasCategory: Se la categoria è stata trovata
+    ///   - hasDate: Se la data è stata trovata
     /// - Returns: Livello di confidenza
-    private func determineConfidence(hasAmount: Bool, hasCategory: Bool) -> ConfidenceLevel {
+    private func determineConfidence(hasAmount: Bool, hasCategory: Bool, hasDate: Bool) -> ConfidenceLevel {
         if hasAmount && hasCategory {
             return .high
         } else if hasAmount || hasCategory {
@@ -436,6 +582,7 @@ class ReceiptOCRService {
             return ReceiptData(
                 amount: nil,
                 categoryName: nil,
+                date: nil,
                 fullText: fallbackText,
                 confidence: .low,
                 ocrSource: .appleVision
@@ -463,14 +610,15 @@ class ReceiptOCRService {
                         [
                             "type": "text",
                             "text": """
-                            Extract the TOTAL AMOUNT (in euros) and CATEGORY from this receipt.
+                            Extract the TOTAL AMOUNT (in euros), CATEGORY, and DATE from this receipt.
 
                             Available categories: Supermarket, Fuel, Pharmacy, Food, Crew, Chandlery, Water Test, Welder, Tender Fuel, Fly.
 
                             Reply ONLY with JSON format:
-                            {"amount": 45.50, "category": "Supermarket"}
+                            {"amount": 45.50, "category": "Supermarket", "date": "2024-12-01"}
 
-                            If you cannot determine amount or category, use null.
+                            Date format: YYYY-MM-DD (ISO 8601)
+                            If you cannot determine amount, category, or date, use null.
                             """
                         ]
                     ]
@@ -506,10 +654,12 @@ class ReceiptOCRService {
                 return ReceiptData(
                     amount: claudeData.amount,
                     categoryName: claudeData.category,
+                    date: claudeData.date,
                     fullText: fallbackText,
                     confidence: determineConfidence(
                         hasAmount: claudeData.amount != nil,
-                        hasCategory: claudeData.category != nil
+                        hasCategory: claudeData.category != nil,
+                        hasDate: claudeData.date != nil
                     ),
                     ocrSource: .claude
                 )
@@ -524,8 +674,8 @@ class ReceiptOCRService {
 
     /// Parse della response di Claude
     /// - Parameter data: JSON response
-    /// - Returns: Amount e category estratti
-    private func parseClaudeResponse(_ data: Data) -> (amount: Double?, category: String?)? {
+    /// - Returns: Amount, category e date estratti
+    private func parseClaudeResponse(_ data: Data) -> (amount: Double?, category: String?, date: Date?)? {
         do {
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let content = json["content"] as? [[String: Any]],
@@ -535,7 +685,7 @@ class ReceiptOCRService {
             }
 
             // Estrai JSON dalla risposta di Claude
-            // Claude potrebbe rispondere con: {"amount": 45.50, "category": "Supermarket"}
+            // Claude potrebbe rispondere con: {"amount": 45.50, "category": "Supermarket", "date": "2024-12-01"}
             guard let jsonData = text.data(using: .utf8),
                   let parsed = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
                 return nil
@@ -544,7 +694,15 @@ class ReceiptOCRService {
             let amount = parsed["amount"] as? Double
             let category = parsed["category"] as? String
 
-            return (amount, category)
+            // Parse date from ISO 8601 format (YYYY-MM-DD)
+            var date: Date?
+            if let dateString = parsed["date"] as? String {
+                let formatter = ISO8601DateFormatter()
+                formatter.formatOptions = [.withFullDate]
+                date = formatter.date(from: dateString)
+            }
+
+            return (amount, category, date)
 
         } catch {
             print("⚠️ Error parsing Claude response: \(error)")
@@ -557,6 +715,7 @@ class ReceiptOCRService {
         return ReceiptData(
             amount: nil,
             categoryName: nil,
+            date: nil,
             fullText: text,
             confidence: .low,
             ocrSource: .appleVision

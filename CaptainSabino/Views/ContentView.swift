@@ -25,6 +25,7 @@ struct ContentView: View {
     @State private var processingMessage = "Processing receipt..."
     @State private var voiceParsedAmount: Double?
     @State private var voiceParsedCategory: Category?
+    @State private var voiceParsedDate: Date?
     @State private var capturedReceiptImage: UIImage?
     @State private var selectedTab = 0
 
@@ -105,6 +106,7 @@ struct ContentView: View {
                     AddExpenseView(
                         prefilledAmount: voiceParsedAmount,
                         prefilledCategory: voiceParsedCategory,
+                        prefilledDate: voiceParsedDate,
                         receiptImage: capturedReceiptImage
                     )
                 }
@@ -160,6 +162,7 @@ struct ContentView: View {
                         // Reset voice parsed data for manual entry
                         voiceParsedAmount = nil
                         voiceParsedCategory = nil
+                        voiceParsedDate = nil
                         capturedReceiptImage = nil
                         showingAddExpense = true
                     }
@@ -391,6 +394,7 @@ struct ContentView: View {
         await MainActor.run {
             voiceParsedAmount = receiptData.amount
             voiceParsedCategory = matchedCategory
+            voiceParsedDate = receiptData.date
 
             // Hide processing overlay
             isProcessingReceipt = false
