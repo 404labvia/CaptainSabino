@@ -461,40 +461,107 @@ class ReceiptOCRService {
     /// - Parameter text: Testo OCR
     /// - Returns: Data estratta o nil
     private func extractDate(from text: String) -> Date? {
-        // Pattern per date europee (supporta /, -, .)
-        // Formati: dd/MM/yyyy, dd-MM-yyyy, dd.MM.yyyy
-        // Supporta anche anni a 2 cifre: dd/MM/yy
-        let datePatterns = [
+        var foundDatesWithTime: [(date: Date, position: Int)] = []
+        var foundDatesWithoutTime: [(date: Date, position: Int)] = []
+
+        // PRIORITÀ 1: Pattern con ORA (più affidabili - identificano la data scontrino!)
+        // Formati: dd/MM/yyyy HH:mm, dd-MM-yyyy HH:mm, dd.MM.yyyy HH:mm
+        // Ora può usare : o . come separatore (es. 12:15 o 12.15)
+        let dateTimePatterns = [
+            // Pattern con anno a 4 cifre + ora
+            "(\\d{1,2})[/\\-\\.](\\d{1,2})[/\\-\\.](\\d{4})\\s*[\\-\\s]?\\s*(\\d{1,2})[:\\.](\\d{2})",
+            // Pattern con anno a 2 cifre + ora
+            "(\\d{1,2})[/\\-\\.](\\d{1,2})[/\\-\\.](\\d{2})\\s*[\\-\\s]?\\s*(\\d{1,2})[:\\.](\\d{2})"
+        ]
+
+        for pattern in dateTimePatterns {
+            if let dates = extractDatesWithTime(pattern: pattern, from: text) {
+                foundDatesWithTime.append(contentsOf: dates)
+            }
+        }
+
+        // Se troviamo date CON ora, prendiamo quella (più affidabile!)
+        if !foundDatesWithTime.isEmpty {
+            foundDatesWithTime.sort { $0.position < $1.position }
+            let selectedDate = foundDatesWithTime.first!.date
+            print("✅ Data con ora trovata: \(formatDateForLog(selectedDate)) (alta priorità)")
+            return selectedDate
+        }
+
+        // PRIORITÀ 2 (FALLBACK): Pattern SENZA ora
+        // Usati se OCR non riconosce l'ora o se lo scontrino non ha ora
+        let dateOnlyPatterns = [
             // Pattern con anno a 4 cifre
             "(\\d{1,2})[/\\-\\.](\\d{1,2})[/\\-\\.](\\d{4})",
             // Pattern con anno a 2 cifre
             "(\\d{1,2})[/\\-\\.](\\d{1,2})[/\\-\\.](\\d{2})"
         ]
 
-        var foundDates: [(date: Date, position: Int)] = []
-
-        for pattern in datePatterns {
+        for pattern in dateOnlyPatterns {
             if let dates = extractAllDatesWithRegex(pattern: pattern, from: text) {
-                foundDates.append(contentsOf: dates)
+                foundDatesWithoutTime.append(contentsOf: dates)
             }
         }
 
-        // Se non abbiamo trovato date, ritorna nil
-        guard !foundDates.isEmpty else {
-            print("❌ Nessuna data trovata")
+        // Usa la prima data senza ora come fallback
+        if !foundDatesWithoutTime.isEmpty {
+            foundDatesWithoutTime.sort { $0.position < $1.position }
+            let selectedDate = foundDatesWithoutTime.first!.date
+            print("⚠️ Data SENZA ora trovata (fallback): \(formatDateForLog(selectedDate))")
+            return selectedDate
+        }
+
+        print("❌ Nessuna data trovata")
+        return nil
+    }
+
+    /// Estrae date CON ora dal testo (pattern: dd/MM/yyyy HH:mm)
+    /// L'ora viene usata solo per identificare la data dello scontrino, ma NON viene salvata
+    /// - Parameters:
+    ///   - pattern: Regex pattern per data+ora
+    ///   - text: Testo da cercare
+    /// - Returns: Array di date trovate con posizione (solo parte data, senza ora)
+    private func extractDatesWithTime(pattern: String, from text: String) -> [(date: Date, position: Int)]? {
+        guard let regex = try? NSRegularExpression(pattern: pattern) else {
             return nil
         }
 
-        // Ordina per posizione (prima nel testo = più probabile sia la data di emissione)
-        foundDates.sort { $0.position < $1.position }
+        let range = NSRange(text.startIndex..., in: text)
+        let matches = regex.matches(in: text, range: range)
 
-        // Prendi la prima data valida
-        if let firstDate = foundDates.first {
-            print("✅ Data trovata: \(formatDateForLog(firstDate.date))")
-            return firstDate.date
+        let dates = matches.compactMap { match -> (date: Date, position: Int)? in
+            // Estrai giorno, mese, anno (ignoriamo ora e minuti)
+            guard let dayRange = Range(match.range(at: 1), in: text),
+                  let monthRange = Range(match.range(at: 2), in: text),
+                  let yearRange = Range(match.range(at: 3), in: text) else {
+                return nil
+            }
+
+            let dayString = String(text[dayRange])
+            let monthString = String(text[monthRange])
+            let yearString = String(text[yearRange])
+
+            guard let day = Int(dayString),
+                  let month = Int(monthString),
+                  var year = Int(yearString) else {
+                return nil
+            }
+
+            // Se anno a 2 cifre, converti in 4 cifre
+            if year < 100 {
+                year += 2000
+            }
+
+            // Valida e crea la data (SENZA ora - salviamo solo giorno/mese/anno)
+            guard let validDate = createDate(day: day, month: month, year: year) else {
+                return nil
+            }
+
+            // Ritorna data con posizione nel testo
+            return (date: validDate, position: match.range.location)
         }
 
-        return nil
+        return dates.isEmpty ? nil : dates
     }
 
     /// Estrae tutte le date con regex e le valida
