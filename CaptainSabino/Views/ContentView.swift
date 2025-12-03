@@ -26,6 +26,7 @@ struct ContentView: View {
     @State private var processingMessage = "Processing receipt..."
     @State private var voiceParsedAmount: Double?
     @State private var voiceParsedCategory: Category?
+    @State private var voiceParsedDate: Date?
     @State private var capturedReceiptImage: UIImage?
     @State private var capturedReceiptOCRText: String? // Testo OCR per learning
     @State private var selectedTab = 0
@@ -108,6 +109,7 @@ struct ContentView: View {
                     AddExpenseView(
                         prefilledAmount: voiceParsedAmount,
                         prefilledCategory: voiceParsedCategory,
+                        prefilledDate: voiceParsedDate,
                         receiptImage: capturedReceiptImage,
                         ocrText: capturedReceiptOCRText
                     )
@@ -164,6 +166,7 @@ struct ContentView: View {
                         // Reset voice parsed data for manual entry
                         voiceParsedAmount = nil
                         voiceParsedCategory = nil
+                        voiceParsedDate = nil
                         capturedReceiptImage = nil
                         showingAddExpense = true
                     }
@@ -187,6 +190,7 @@ struct ContentView: View {
                     Button("Manual Entry") {
                         voiceParsedAmount = nil
                         voiceParsedCategory = nil
+                        voiceParsedDate = nil
                         capturedReceiptImage = nil
                         showingAddExpense = true
                     }
@@ -443,6 +447,7 @@ struct ContentView: View {
                 print("✅ OCR SUCCESS - Amount: €\(receiptData.amount!), Category: \(receiptData.categoryName ?? "nil")")
                 voiceParsedAmount = receiptData.amount
                 voiceParsedCategory = matchedCategory
+                voiceParsedDate = receiptData.date
                 capturedReceiptOCRText = receiptData.fullText  // Save OCR text for learning
                 showingAddExpense = true
             }
