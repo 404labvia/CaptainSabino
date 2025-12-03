@@ -29,6 +29,7 @@ struct ContentView: View {
     @State private var capturedReceiptImage: UIImage?
     @State private var capturedReceiptOCRText: String? // Testo OCR per learning
     @State private var selectedTab = 0
+    @State private var showingOCRFailureAlert = false
 
     // MARK: - Body
 
@@ -178,6 +179,20 @@ struct ContentView: View {
                     Button("Cancel", role: .cancel) {}
                 } message: {
                     Text("Choose how to add expense")
+                }
+                .alert("Unable to Read Receipt", isPresented: $showingOCRFailureAlert) {
+                    Button("Retry") {
+                        showingCameraReceipt = true
+                    }
+                    Button("Manual Entry") {
+                        voiceParsedAmount = nil
+                        voiceParsedCategory = nil
+                        capturedReceiptImage = nil
+                        showingAddExpense = true
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("Could not extract amount from receipt. The photo may be blurry or the receipt format is not supported. Try again or enter manually.")
                 }
             }
         }
@@ -360,17 +375,27 @@ struct ContentView: View {
             learnedKeywords: learnedKeywords
         )
 
-        // Step 3: If amount not found AND Claude API key exists, retry with Claude
+        // Step 3: If amount OR category not found AND Claude API key exists, retry with Claude
         print("🔍 DEBUG - Amount: \(receiptData.amount?.description ?? "nil")")
+        print("🔍 DEBUG - Category: \(receiptData.categoryName ?? "nil")")
         print("🔍 DEBUG - Settings count: \(settings.count)")
         print("🔍 DEBUG - API Key exists: \(settings.first?.claudeAPIKey != nil)")
         print("🔍 DEBUG - API Key length: \(settings.first?.claudeAPIKey?.count ?? 0)")
 
-        if receiptData.amount == nil,
+        // Call Claude if missing amount OR category
+        let needsClaude = receiptData.amount == nil || receiptData.categoryName == nil
+
+        if needsClaude,
            let claudeAPIKey = settings.first?.claudeAPIKey,
            !claudeAPIKey.isEmpty {
 
-            print("⚠️ Amount not found, retrying with Claude API...")
+            if receiptData.amount == nil && receiptData.categoryName == nil {
+                print("⚠️ Amount AND category not found, retrying with Claude API...")
+            } else if receiptData.amount == nil {
+                print("⚠️ Amount not found, retrying with Claude API...")
+            } else {
+                print("⚠️ Category not found, retrying with Claude API...")
+            }
             print("🔑 Claude API key found: \(String(claudeAPIKey.prefix(15)))... (length: \(claudeAPIKey.count))")
 
             // Update message to show AI retry
@@ -385,15 +410,11 @@ struct ContentView: View {
                 learnedKeywords: learnedKeywords
             )
 
-            if receiptData.amount != nil {
-                print("✅ Amount found with Claude API: €\(receiptData.amount!)")
-            } else {
-                print("❌ Amount still not found even with Claude")
-            }
+            print("📊 Claude API results - Amount: \(receiptData.amount?.description ?? "nil"), Category: \(receiptData.categoryName ?? "nil")")
         } else {
             // Debug: why Claude API was not called
-            if receiptData.amount != nil {
-                print("ℹ️ Claude API not needed (amount found by Apple Vision)")
+            if receiptData.amount != nil && receiptData.categoryName != nil {
+                print("ℹ️ Claude API not needed (amount and category found by Apple Vision)")
             } else if settings.first?.claudeAPIKey == nil {
                 print("❌ Claude API key is NIL in settings!")
             } else if settings.first?.claudeAPIKey?.isEmpty == true {
@@ -409,17 +430,22 @@ struct ContentView: View {
             matchedCategory = categories.first { $0.name == categoryName }
         }
 
-        // Prepare data for AddExpenseView
+        // OPZIONE A: Don't show form if amount is nil
         await MainActor.run {
-            voiceParsedAmount = receiptData.amount
-            voiceParsedCategory = matchedCategory
-            capturedReceiptOCRText = receiptData.fullText  // Save OCR text for learning
-
-            // Hide processing overlay
             isProcessingReceipt = false
 
-            // Open AddExpenseView with parsed data
-            showingAddExpense = true
+            if receiptData.amount == nil {
+                // Amount not found: show error alert
+                print("❌ OCR FAILED - Amount is nil after all attempts")
+                showingOCRFailureAlert = true
+            } else {
+                // Amount found: prepare data and show form
+                print("✅ OCR SUCCESS - Amount: €\(receiptData.amount!), Category: \(receiptData.categoryName ?? "nil")")
+                voiceParsedAmount = receiptData.amount
+                voiceParsedCategory = matchedCategory
+                capturedReceiptOCRText = receiptData.fullText  // Save OCR text for learning
+                showingAddExpense = true
+            }
         }
     }
 }
