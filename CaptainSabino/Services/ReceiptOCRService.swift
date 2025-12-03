@@ -221,23 +221,18 @@ class ReceiptOCRService {
         print("📊 Matching with \(categoryKeywords.count) base categories + \(learnedKeywords.count) learned keywords")
         let categoryMatch = matchCategory(from: visionText, learnedKeywords: learnedKeywords)
 
-        // Step 5: Determina se serve Claude API (THRESHOLD LOGIC + date)
+        // Step 5: Determina se serve Claude API (THRESHOLD LOGIC)
+        // Date mancante NON triggera Claude (è "nice to have")
         let shouldUseClaude: Bool
 
-        if extractedAmount == nil || extractedDate == nil {
-            // SEMPRE usare Claude se amount O date non trovati
+        if extractedAmount == nil {
+            // SEMPRE usare Claude se amount non trovato (CRITICO!)
             shouldUseClaude = true
-            if extractedAmount == nil && extractedDate == nil {
-                print("🔄 Amount AND date not found → Claude needed")
-            } else if extractedAmount == nil {
-                print("🔄 Amount not found → Claude needed")
-            } else {
-                print("🔄 Date not found → Claude needed")
-            }
+            print("🔄 Amount not found → Claude needed")
         } else if categoryMatch.strength == .strong {
-            // STRONG match + amount + date trovati = NON serve Claude
+            // STRONG match + amount trovato = NON serve Claude
             shouldUseClaude = false
-            print("✅ Strong category match + amount + date found → Claude NOT needed")
+            print("✅ Strong category match + amount found → Claude NOT needed")
         } else {
             // WEAK o NO match = usare Claude per conferma categoria
             shouldUseClaude = true

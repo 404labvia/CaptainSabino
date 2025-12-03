@@ -379,27 +379,21 @@ struct ContentView: View {
             learnedKeywords: learnedKeywords
         )
 
-        // Step 3: If amount OR category not found AND Claude API key exists, retry with Claude
+        // Step 3: If AMOUNT not found AND Claude API key exists, retry with Claude
+        // (Category/Date mancanti NON triggerano retry - sono optional)
         print("🔍 DEBUG - Amount: \(receiptData.amount?.description ?? "nil")")
         print("🔍 DEBUG - Category: \(receiptData.categoryName ?? "nil")")
+        print("🔍 DEBUG - Date: \(receiptData.date?.description ?? "nil")")
         print("🔍 DEBUG - Settings count: \(settings.count)")
         print("🔍 DEBUG - API Key exists: \(settings.first?.claudeAPIKey != nil)")
         print("🔍 DEBUG - API Key length: \(settings.first?.claudeAPIKey?.count ?? 0)")
 
-        // Call Claude if missing amount OR category
-        let needsClaude = receiptData.amount == nil || receiptData.categoryName == nil
-
-        if needsClaude,
+        // Call Claude ONLY if amount is missing (CRITICAL!)
+        if receiptData.amount == nil,
            let claudeAPIKey = settings.first?.claudeAPIKey,
            !claudeAPIKey.isEmpty {
 
-            if receiptData.amount == nil && receiptData.categoryName == nil {
-                print("⚠️ Amount AND category not found, retrying with Claude API...")
-            } else if receiptData.amount == nil {
-                print("⚠️ Amount not found, retrying with Claude API...")
-            } else {
-                print("⚠️ Category not found, retrying with Claude API...")
-            }
+            print("⚠️ Amount not found, retrying with Claude API...")
             print("🔑 Claude API key found: \(String(claudeAPIKey.prefix(15)))... (length: \(claudeAPIKey.count))")
 
             // Update message to show AI retry
@@ -414,11 +408,11 @@ struct ContentView: View {
                 learnedKeywords: learnedKeywords
             )
 
-            print("📊 Claude API results - Amount: \(receiptData.amount?.description ?? "nil"), Category: \(receiptData.categoryName ?? "nil")")
+            print("📊 Claude API results - Amount: \(receiptData.amount?.description ?? "nil"), Category: \(receiptData.categoryName ?? "nil"), Date: \(receiptData.date?.description ?? "nil")")
         } else {
             // Debug: why Claude API was not called
-            if receiptData.amount != nil && receiptData.categoryName != nil {
-                print("ℹ️ Claude API not needed (amount and category found by Apple Vision)")
+            if receiptData.amount != nil {
+                print("ℹ️ Claude API not needed (amount found by Apple Vision)")
             } else if settings.first?.claudeAPIKey == nil {
                 print("❌ Claude API key is NIL in settings!")
             } else if settings.first?.claudeAPIKey?.isEmpty == true {
