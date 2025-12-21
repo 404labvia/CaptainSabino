@@ -179,7 +179,6 @@ struct OnboardingView: View {
                     ownerEmail: ownerEmail,
                     captainName: captainName,
                     captainEmail: captainEmail,
-                    syncReceiptsToiCloud: false,
                     claudeAPIKey: nil
                 )
                 modelContext.insert(newSettings)
