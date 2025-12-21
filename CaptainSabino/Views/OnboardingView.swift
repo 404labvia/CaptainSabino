@@ -130,46 +130,48 @@ struct OnboardingView: View {
     }
     
     // MARK: - Methods
-    
+
     private func saveSettings() {
         // Validation
-        guard !yachtName.isEmpty else {
+        guard !yachtName.trimmingCharacters(in: .whitespaces).isEmpty else {
             showAlert("Please enter yacht name")
             return
         }
 
-        guard !captainName.isEmpty else {
+        guard !captainName.trimmingCharacters(in: .whitespaces).isEmpty else {
             showAlert("Please enter captain name")
             return
         }
 
-        guard !captainEmail.isEmpty, captainEmail.contains("@") else {
+        let trimmedEmail = captainEmail.trimmingCharacters(in: .whitespaces)
+        guard !trimmedEmail.isEmpty, trimmedEmail.contains("@") else {
             showAlert("Please enter a valid captain email")
             return
         }
 
-        // Save or update settings
-        do {
-            if let existingSettings = settings.first {
-                existingSettings.yachtName = yachtName
-                existingSettings.captainName = captainName
-                existingSettings.captainEmail = captainEmail
-                existingSettings.touch()
-            } else {
-                let newSettings = YachtSettings(
-                    yachtName: yachtName,
-                    captainName: captainName,
-                    captainEmail: captainEmail
-                )
-                modelContext.insert(newSettings)
-            }
+        // Save settings
+        if let existingSettings = settings.first {
+            // Update existing settings
+            existingSettings.yachtName = yachtName.trimmingCharacters(in: .whitespaces)
+            existingSettings.captainName = captainName.trimmingCharacters(in: .whitespaces)
+            existingSettings.captainEmail = trimmedEmail
+            existingSettings.updatedAt = Date()  // Force update
+        } else {
+            // Create new settings
+            let newSettings = YachtSettings(
+                yachtName: yachtName.trimmingCharacters(in: .whitespaces),
+                captainName: captainName.trimmingCharacters(in: .whitespaces),
+                captainEmail: trimmedEmail
+            )
+            modelContext.insert(newSettings)
+        }
 
+        do {
             try modelContext.save()
-            print("✅ Settings saved successfully")
-            print("✅ Settings complete: \(settings.first?.isComplete ?? false)")
+            print("✅ Settings saved - isComplete: \(settings.first?.isComplete ?? false)")
         } catch {
-            print("❌ Error saving settings: \(error)")
-            showAlert("Error saving settings: \(error.localizedDescription)")
+            print("❌ Save error: \(error)")
+            showAlert("Error: \(error.localizedDescription)")
         }
     }
     
