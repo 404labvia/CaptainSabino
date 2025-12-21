@@ -379,5 +379,5 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
-        .modelContainer(for: [Expense.self, Category.self, Reminder.self, YachtSettings.self])
+        .modelContainer(for: [Expense.self, Category.self, Reminder.self, YachtSettings.self, LearnedKeyword.self])
 }

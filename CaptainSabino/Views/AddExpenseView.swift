@@ -228,5 +228,5 @@ struct AddExpenseView: View {
 
 #Preview {
     AddExpenseView()
-        .modelContainer(for: [Expense.self, Category.self])
+        .modelContainer(for: [Expense.self, Category.self, LearnedKeyword.self])
 }

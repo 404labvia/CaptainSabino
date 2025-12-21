@@ -328,5 +328,5 @@ struct ClaudeAPISettingsView: View {
 
 #Preview {
     SettingsView()
-        .modelContainer(for: [YachtSettings.self])
+        .modelContainer(for: [YachtSettings.self, LearnedKeyword.self])
 }
