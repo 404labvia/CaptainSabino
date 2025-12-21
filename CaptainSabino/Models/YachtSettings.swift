@@ -72,10 +72,8 @@ final class YachtSettings {
     /// Verifica se le impostazioni sono complete
     var isComplete: Bool {
         return !yachtName.isEmpty &&
-               !ownerEmail.isEmpty &&
                !captainName.isEmpty &&
                !captainEmail.isEmpty &&
-               ownerEmail.contains("@") &&
                captainEmail.contains("@")
     }
 }
