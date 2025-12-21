@@ -15,11 +15,14 @@ struct AddExpenseView: View {
     @Environment(\.dismiss) private var dismiss
     @Query private var categories: [Category]
     @Query private var settings: [YachtSettings]
+    @Query private var learnedKeywords: [LearnedKeyword]
 
-    // Prefilled data from voice input or OCR (optional)
+    // Prefilled data from OCR (optional)
     var prefilledAmount: Double?
     var prefilledCategory: Category?
+    var prefilledDate: Date?
     var receiptImage: UIImage?
+    var merchantName: String?
 
     @State private var amount = ""
     @State private var selectedCategory: Category?
@@ -29,7 +32,7 @@ struct AddExpenseView: View {
     @State private var alertMessage = ""
 
     // MARK: - Body
-    
+
     var body: some View {
         NavigationStack {
             Form {
@@ -39,13 +42,13 @@ struct AddExpenseView: View {
                         Text("€")
                             .font(.title2)
                             .foregroundStyle(.secondary)
-                        
+
                         TextField("0.00", text: $amount)
                             .keyboardType(.decimalPad)
                             .font(.title2)
                     }
                 }
-                
+
                 // Category Section
                 Section("Category") {
                     if categories.isEmpty {
@@ -61,7 +64,7 @@ struct AddExpenseView: View {
                         }
                     }
                 }
-                
+
                 // Date Section
                 Section("Date") {
                     DatePicker(
@@ -70,7 +73,7 @@ struct AddExpenseView: View {
                         displayedComponents: [.date]
                     )
                 }
-                
+
                 // Notes Section
                 Section("Notes (Optional)") {
                     TextEditor(text: $notes)
@@ -103,7 +106,7 @@ struct AddExpenseView: View {
                         dismiss()
                     }
                 }
-                
+
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Save") {
                         saveExpense()
@@ -121,7 +124,7 @@ struct AddExpenseView: View {
             }
         }
     }
-    
+
     // MARK: - Methods
 
     private func loadPrefilledData() {
@@ -133,6 +136,11 @@ struct AddExpenseView: View {
         // Load prefilled category
         if let prefilledCategory = prefilledCategory {
             selectedCategory = prefilledCategory
+        }
+
+        // Load prefilled date
+        if let prefilledDate = prefilledDate {
+            date = prefilledDate
         }
     }
 
@@ -153,13 +161,11 @@ struct AddExpenseView: View {
         // Save receipt photo if present
         var receiptImagePath: String?
         if let receiptImage = receiptImage {
-            let useICloud = settings.first?.syncReceiptsToiCloud ?? false
             receiptImagePath = ReceiptStorageService.shared.saveReceipt(
                 image: receiptImage,
                 date: date,
                 amount: amountValue,
-                categoryName: selectedCategory.name,
-                useICloud: useICloud
+                categoryName: selectedCategory.name
             )
         }
 
@@ -174,6 +180,11 @@ struct AddExpenseView: View {
 
         modelContext.insert(newExpense)
 
+        // MACHINE LEARNING: Learn keywords from merchant name
+        if let merchantName = merchantName, !merchantName.isEmpty {
+            learnKeywordsFromMerchant(merchantName: merchantName, categoryName: selectedCategory.name)
+        }
+
         do {
             try modelContext.save()
             dismiss()
@@ -181,7 +192,32 @@ struct AddExpenseView: View {
             showAlert("Failed to save expense: \(error.localizedDescription)")
         }
     }
-    
+
+    /// Impara keyword dal nome merchant e le associa alla categoria scelta
+    private func learnKeywordsFromMerchant(merchantName: String, categoryName: String) {
+        let keywords = ReceiptOCRService.shared.extractMerchantKeywords(from: merchantName)
+
+        guard !keywords.isEmpty else { return }
+
+        for keyword in keywords {
+            if let existing = learnedKeywords.first(where: {
+                $0.keyword == keyword && $0.categoryName == categoryName
+            }) {
+                existing.usageCount += 1
+                existing.lastUsedDate = Date()
+            } else {
+                let learned = LearnedKeyword(
+                    categoryName: categoryName,
+                    keyword: keyword,
+                    learnedDate: Date(),
+                    usageCount: 1,
+                    lastUsedDate: Date()
+                )
+                modelContext.insert(learned)
+            }
+        }
+    }
+
     private func showAlert(_ message: String) {
         alertMessage = message
         showingAlert = true
