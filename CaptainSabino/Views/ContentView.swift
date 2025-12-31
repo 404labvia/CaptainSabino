@@ -19,17 +19,19 @@ struct ContentView: View {
     @State private var showingOnboarding = false
     @State private var showingAddMenu = false
     @State private var showingAddExpense = false
-    @State private var showingVoiceInput = false
     @State private var showingAddReminder = false
     @State private var showingCameraReceipt = false
     @State private var isProcessingReceipt = false
     @State private var processingMessage = "Processing receipt..."
-    @State private var voiceParsedAmount: Double?
-    @State private var voiceParsedCategory: Category?
+    @State private var prefilledAmount: Double?
+    @State private var prefilledCategory: Category?
+    @State private var prefilledDate: Date?
     @State private var capturedReceiptImage: UIImage?
-    @State private var capturedReceiptOCRText: String? // Testo OCR per learning
+    @State private var capturedMerchantName: String?
     @State private var selectedTab = 0
     @State private var showingOCRFailureAlert = false
+    @State private var showingAPIKeyMissingAlert = false
+    @State private var ocrErrorMessage = ""
 
     // MARK: - Body
 
@@ -106,28 +108,18 @@ struct ContentView: View {
                 }
                 .sheet(isPresented: $showingAddExpense) {
                     AddExpenseView(
-                        prefilledAmount: voiceParsedAmount,
-                        prefilledCategory: voiceParsedCategory,
+                        prefilledAmount: prefilledAmount,
+                        prefilledCategory: prefilledCategory,
+                        prefilledDate: prefilledDate,
                         receiptImage: capturedReceiptImage,
-                        ocrText: capturedReceiptOCRText
+                        merchantName: capturedMerchantName
                     )
-                }
-                .sheet(isPresented: $showingVoiceInput) {
-                    VoiceInputView { amount, category in
-                        // Save parsed data
-                        voiceParsedAmount = amount
-                        voiceParsedCategory = category
-
-                        // Open AddExpenseView with parsed data
-                        showingAddExpense = true
-                    }
                 }
                 .sheet(isPresented: $showingAddReminder) {
                     AddReminderView()
                 }
                 .sheet(isPresented: $showingCameraReceipt) {
                     CameraReceiptView { capturedImage in
-                        // Start processing receipt
                         isProcessingReceipt = true
                         capturedReceiptImage = capturedImage
 
@@ -161,38 +153,45 @@ struct ContentView: View {
                 }
                 .confirmationDialog("Add New Expense", isPresented: $showingAddMenu) {
                     Button("Manual Entry") {
-                        // Reset voice parsed data for manual entry
-                        voiceParsedAmount = nil
-                        voiceParsedCategory = nil
-                        capturedReceiptImage = nil
+                        resetPrefilledData()
                         showingAddExpense = true
                     }
 
-                    Button("Voice Input") {
-                        showingVoiceInput = true
-                    }
-
-                    Button("📸 Scan Receipt") {
-                        showingCameraReceipt = true
+                    Button("Scan Receipt") {
+                        if let apiKey = settings.first?.claudeAPIKey, !apiKey.isEmpty {
+                            showingCameraReceipt = true
+                        } else {
+                            showingAPIKeyMissingAlert = true
+                        }
                     }
 
                     Button("Cancel", role: .cancel) {}
                 } message: {
                     Text("Choose how to add expense")
                 }
+                .alert("Claude API Key Required", isPresented: $showingAPIKeyMissingAlert) {
+                    Button("Go to Settings") {
+                        selectedTab = 4
+                    }
+                    Button("Manual Entry") {
+                        resetPrefilledData()
+                        showingAddExpense = true
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("To scan receipts, you need to configure your Claude API key in Settings. You can get a key from console.anthropic.com")
+                }
                 .alert("Unable to Read Receipt", isPresented: $showingOCRFailureAlert) {
                     Button("Retry") {
                         showingCameraReceipt = true
                     }
                     Button("Manual Entry") {
-                        voiceParsedAmount = nil
-                        voiceParsedCategory = nil
-                        capturedReceiptImage = nil
+                        resetPrefilledData()
                         showingAddExpense = true
                     }
                     Button("Cancel", role: .cancel) {}
                 } message: {
-                    Text("Could not extract amount from receipt. The photo may be blurry or the receipt format is not supported. Try again or enter manually.")
+                    Text(ocrErrorMessage)
                 }
             }
         }
@@ -201,121 +200,102 @@ struct ContentView: View {
             requestNotificationPermissions()
         }
     }
-    
+
     // MARK: - Computed Properties
 
-    /// Verifica se serve l'onboarding (prima apertura)
     private var needsOnboarding: Bool {
         return settings.isEmpty || !settings[0].isComplete
     }
 
-    /// Conta i reminders attivi (non completati)
     private var activeRemindersCount: Int {
         reminders.filter { !$0.isCompleted }.count
     }
 
-    /// Badge per la tab Reminders (nil se zero)
     private var remindersBadge: Int? {
         let count = activeRemindersCount
         return count > 0 ? count : nil
     }
-    
+
     // MARK: - Methods
-    
-    /// Inizializza dati di base (categorie predefinite)
+
+    private func resetPrefilledData() {
+        prefilledAmount = nil
+        prefilledCategory = nil
+        prefilledDate = nil
+        capturedReceiptImage = nil
+        capturedMerchantName = nil
+    }
+
     private func initializeDataIfNeeded() {
-        // Crea categorie predefinite se non esistono
         if categories.isEmpty {
             let predefinedCategories = Category.createPredefinedCategories()
             for category in predefinedCategories {
                 modelContext.insert(category)
             }
-
             try? modelContext.save()
         } else {
-            // Update existing category colors (migration)
             updateCategoryColorsIfNeeded()
         }
-
-        // Verifica e pulisci settings corrotti o duplicati
         cleanupSettingsIfNeeded()
     }
 
-    /// Pulisce settings duplicati o corrotti dal database
     private func cleanupSettingsIfNeeded() {
-        // Se ci sono più settings, teniamo solo il primo completo o l'ultimo
         if settings.count > 1 {
-            print("⚠️ Found \(settings.count) YachtSettings, cleaning up...")
-
-            // Trova il primo settings completo
             if let completeSettings = settings.first(where: { $0.isComplete }) {
-                // Elimina tutti gli altri
                 for setting in settings where setting.id != completeSettings.id {
                     modelContext.delete(setting)
                 }
             } else {
-                // Nessuno è completo, elimina tutti tranne l'ultimo
                 for (index, setting) in settings.enumerated() {
                     if index < settings.count - 1 {
                         modelContext.delete(setting)
                     }
                 }
             }
-
             try? modelContext.save()
         }
 
-        // Se non ci sono settings, crea uno vuoto per l'onboarding
         if settings.isEmpty {
-            print("ℹ️ Creating empty YachtSettings for onboarding")
             let newSettings = YachtSettings()
             modelContext.insert(newSettings)
             try? modelContext.save()
         }
     }
 
-    /// Aggiorna i colori delle categorie esistenti con i nuovi colori e aggiunge nuove categorie
     private func updateCategoryColorsIfNeeded() {
         let hasUpdatedCategories = UserDefaults.standard.bool(forKey: "hasUpdatedCategories_v5")
-
         guard !hasUpdatedCategories else { return }
 
-        // Mapping dei nuovi colori per categorie esistenti
         let colorMapping: [String: String] = [
-            "Food": "#E53935",        // Rosso vivace
-            "Fuel": "#1E88E5",        // Blu navy
-            "Pharmacy": "#00897B",    // Verde smeraldo
-            "Crew": "#D81B60",        // Magenta
-            "Chandlery": "#FB8C00",   // Arancione
-            "Water Test": "#03A9F4",  // Azzurro
-            "Welder": "#FF6F00",      // Arancione scuro
-            "Tender Fuel": "#607D8B", // Grigio-blu
-            "Fly": "#00BCD4",         // Celeste
-            "Supermarket": "#8BC34A"  // Verde lime
+            "Food": "#E53935",
+            "Fuel": "#1E88E5",
+            "Pharmacy": "#00897B",
+            "Crew": "#D81B60",
+            "Chandlery": "#FB8C00",
+            "Water Test": "#03A9F4",
+            "Welder": "#FF6F00",
+            "Tender Fuel": "#607D8B",
+            "Fly": "#00BCD4",
+            "Supermarket": "#8BC34A"
         ]
 
-        // Aggiorna i colori delle categorie esistenti
         for category in categories where category.isPredefined {
             if let newColor = colorMapping[category.name] {
                 category.colorHex = newColor
             }
         }
 
-        // Rimuovi categorie vecchie (Supplies, Maintenance, Mooring)
         let categoriesToRemove = ["Supplies", "Maintenance", "Mooring"]
         for category in categories where category.isPredefined {
             if categoriesToRemove.contains(category.name) {
-                // Se la categoria ha spese, non la cancelliamo ma la rendiamo custom
                 if let expenses = category.expenses, !expenses.isEmpty {
                     category.isPredefined = false
                 } else {
-                    // Nessuna spesa, possiamo cancellare
                     modelContext.delete(category)
                 }
             }
         }
 
-        // Aggiungi nuove categorie se non esistono
         let existingCategoryNames = Set(categories.map { $0.name })
         let newCategories: [(name: String, icon: String, color: String)] = [
             ("Chandlery", "wrench.and.screwdriver", "#FB8C00"),
@@ -334,116 +314,61 @@ struct ContentView: View {
         }
 
         try? modelContext.save()
-
-        // Salva il flag per non ripetere l'aggiornamento
         UserDefaults.standard.set(true, forKey: "hasUpdatedCategories_v5")
     }
 
-    /// Richiede i permessi per le notifiche all'avvio dell'app
     private func requestNotificationPermissions() {
         NotificationService.shared.requestAuthorization { granted in
             if granted {
-                print("✅ Notification permissions granted")
-            } else {
-                print("⚠️ Notification permissions denied")
+                print("Notification permissions granted")
             }
         }
     }
 
-    /// Gestisce il tap sul pulsante + in base alla tab selezionata
     private func handleAddButtonTap() {
         if selectedTab == 3 {
-            // Tab Reminders: apre direttamente Add Reminder
             showingAddReminder = true
         } else {
-            // Altre tab: mostra il menu per aggiungere expense
             showingAddMenu = true
         }
     }
 
-    /// Processa lo scontrino con OCR (con auto-retry Claude se fallisce)
     private func processReceiptWithOCR(image: UIImage) async {
-        // Step 1: Reset message
         await MainActor.run {
-            processingMessage = "Processing receipt..."
+            processingMessage = "Analyzing receipt..."
         }
 
-        // Step 2: Try Apple Vision OCR first (without Claude, but with learned keywords)
-        var receiptData = await ReceiptOCRService.shared.processReceipt(
+        guard let claudeAPIKey = settings.first?.claudeAPIKey, !claudeAPIKey.isEmpty else {
+            await MainActor.run {
+                isProcessingReceipt = false
+                ocrErrorMessage = "Claude API key not configured. Please add your API key in Settings."
+                showingOCRFailureAlert = true
+            }
+            return
+        }
+
+        let receiptData = await ReceiptOCRService.shared.processReceipt(
             image: image,
-            claudeAPIKey: nil,  // Don't use Claude yet
+            claudeAPIKey: claudeAPIKey,
             learnedKeywords: learnedKeywords
         )
 
-        // Step 3: If amount OR category not found AND Claude API key exists, retry with Claude
-        print("🔍 DEBUG - Amount: \(receiptData.amount?.description ?? "nil")")
-        print("🔍 DEBUG - Category: \(receiptData.categoryName ?? "nil")")
-        print("🔍 DEBUG - Settings count: \(settings.count)")
-        print("🔍 DEBUG - API Key exists: \(settings.first?.claudeAPIKey != nil)")
-        print("🔍 DEBUG - API Key length: \(settings.first?.claudeAPIKey?.count ?? 0)")
-
-        // Call Claude if missing amount OR category
-        let needsClaude = receiptData.amount == nil || receiptData.categoryName == nil
-
-        if needsClaude,
-           let claudeAPIKey = settings.first?.claudeAPIKey,
-           !claudeAPIKey.isEmpty {
-
-            if receiptData.amount == nil && receiptData.categoryName == nil {
-                print("⚠️ Amount AND category not found, retrying with Claude API...")
-            } else if receiptData.amount == nil {
-                print("⚠️ Amount not found, retrying with Claude API...")
-            } else {
-                print("⚠️ Category not found, retrying with Claude API...")
-            }
-            print("🔑 Claude API key found: \(String(claudeAPIKey.prefix(15)))... (length: \(claudeAPIKey.count))")
-
-            // Update message to show AI retry
-            await MainActor.run {
-                processingMessage = "🤖 Retrying with AI..."
-            }
-
-            // Retry with Claude API (with learned keywords)
-            receiptData = await ReceiptOCRService.shared.processReceipt(
-                image: image,
-                claudeAPIKey: claudeAPIKey,
-                learnedKeywords: learnedKeywords
-            )
-
-            print("📊 Claude API results - Amount: \(receiptData.amount?.description ?? "nil"), Category: \(receiptData.categoryName ?? "nil")")
-        } else {
-            // Debug: why Claude API was not called
-            if receiptData.amount != nil && receiptData.categoryName != nil {
-                print("ℹ️ Claude API not needed (amount and category found by Apple Vision)")
-            } else if settings.first?.claudeAPIKey == nil {
-                print("❌ Claude API key is NIL in settings!")
-            } else if settings.first?.claudeAPIKey?.isEmpty == true {
-                print("❌ Claude API key is EMPTY string!")
-            } else {
-                print("❌ Unknown reason for not calling Claude")
-            }
-        }
-
-        // Find category in database by name
         var matchedCategory: Category?
         if let categoryName = receiptData.categoryName {
             matchedCategory = categories.first { $0.name == categoryName }
         }
 
-        // OPZIONE A: Don't show form if amount is nil
         await MainActor.run {
             isProcessingReceipt = false
 
             if receiptData.amount == nil {
-                // Amount not found: show error alert
-                print("❌ OCR FAILED - Amount is nil after all attempts")
+                ocrErrorMessage = "Could not extract amount from receipt. The photo may be blurry or the receipt format is not supported. Try again or enter manually."
                 showingOCRFailureAlert = true
             } else {
-                // Amount found: prepare data and show form
-                print("✅ OCR SUCCESS - Amount: €\(receiptData.amount!), Category: \(receiptData.categoryName ?? "nil")")
-                voiceParsedAmount = receiptData.amount
-                voiceParsedCategory = matchedCategory
-                capturedReceiptOCRText = receiptData.fullText  // Save OCR text for learning
+                prefilledAmount = receiptData.amount
+                prefilledCategory = matchedCategory
+                prefilledDate = receiptData.date
+                capturedMerchantName = receiptData.merchantName
                 showingAddExpense = true
             }
         }
