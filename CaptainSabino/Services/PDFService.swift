@@ -8,6 +8,28 @@
 import Foundation
 import UIKit
 
+// MARK: - Report Info Model
+
+struct ReportInfo: Identifiable {
+    let id = UUID()
+    let url: URL
+    let month: Date
+
+    /// Mese formattato (es. "December 2025")
+    var formattedMonth: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy"
+        return formatter.string(from: month)
+    }
+
+    /// Anno e mese breve (es. "Dec 2025")
+    var shortMonth: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM yyyy"
+        return formatter.string(from: month)
+    }
+}
+
 // MARK: - UIColor Extension
 
 extension UIColor {
@@ -43,6 +65,70 @@ class PDFService {
 
     static let shared = PDFService()
     private init() {}
+
+    // MARK: - Reports Directory
+
+    /// Cartella dedicata per i report PDF
+    private var reportsDirectory: URL? {
+        guard let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return nil
+        }
+        let reportsPath = documentsPath.appendingPathComponent("Reports", isDirectory: true)
+
+        // Crea la cartella se non esiste
+        if !FileManager.default.fileExists(atPath: reportsPath.path) {
+            try? FileManager.default.createDirectory(at: reportsPath, withIntermediateDirectories: true)
+        }
+
+        return reportsPath
+    }
+
+    // MARK: - Report Management
+
+    /// Ottiene tutti i report salvati
+    func getSavedReports() -> [ReportInfo] {
+        guard let reportsDir = reportsDirectory else { return [] }
+
+        do {
+            let files = try FileManager.default.contentsOfDirectory(at: reportsDir, includingPropertiesForKeys: [.creationDateKey])
+            return files
+                .filter { $0.pathExtension.lowercased() == "pdf" }
+                .compactMap { url -> ReportInfo? in
+                    // Estrai mese/anno dal nome file (ExpenseReport_YYYY-MM.pdf)
+                    let fileName = url.deletingPathExtension().lastPathComponent
+                    guard fileName.hasPrefix("ExpenseReport_"),
+                          let dateString = fileName.components(separatedBy: "_").last,
+                          let date = parseReportDate(dateString) else {
+                        return nil
+                    }
+                    return ReportInfo(url: url, month: date)
+                }
+                .sorted { $0.month > $1.month } // Più recenti prima
+        } catch {
+            print("❌ Error loading reports: \(error)")
+            return []
+        }
+    }
+
+    /// Elimina un report
+    func deleteReport(at url: URL) throws {
+        try FileManager.default.removeItem(at: url)
+    }
+
+    /// Verifica se esiste un report per un mese specifico
+    func reportExists(for month: Date) -> Bool {
+        guard let reportsDir = reportsDirectory else { return false }
+        let fileName = "ExpenseReport_\(formatDateForFileName(month)).pdf"
+        let fileURL = reportsDir.appendingPathComponent(fileName)
+        return FileManager.default.fileExists(atPath: fileURL.path)
+    }
+
+    /// Parsing data dal nome file
+    private func parseReportDate(_ dateString: String) -> Date? {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM"
+        return formatter.date(from: dateString)
+    }
 
     // MARK: - PDF Generation
 
@@ -84,12 +170,12 @@ class PDFService {
             drawPieChart(in: context, rect: pageRect, yPosition: yPosition, expenses: expenses)
         }
 
-        // Salva il PDF
+        // Salva il PDF nella cartella Reports
         let fileName = "ExpenseReport_\(formatDateForFileName(month)).pdf"
-        guard let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            throw NSError(domain: "PDFService", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to access documents directory"])
+        guard let reportsDir = reportsDirectory else {
+            throw NSError(domain: "PDFService", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to access reports directory"])
         }
-        let pdfURL = documentsPath.appendingPathComponent(fileName)
+        let pdfURL = reportsDir.appendingPathComponent(fileName)
 
         try data.write(to: pdfURL)
 
