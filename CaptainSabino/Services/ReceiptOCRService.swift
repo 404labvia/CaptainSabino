@@ -271,8 +271,17 @@ class ReceiptOCRService {
 
             print("📝 Claude response: \(text)")
 
+            // Pulisci la risposta da eventuali backtick markdown
+            var cleanedText = text
+                .replacingOccurrences(of: "```json", with: "")
+                .replacingOccurrences(of: "```JSON", with: "")
+                .replacingOccurrences(of: "```", with: "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+
+            print("🧹 Cleaned JSON: \(cleanedText)")
+
             // Estrai JSON dalla risposta
-            guard let jsonData = text.data(using: .utf8),
+            guard let jsonData = cleanedText.data(using: .utf8),
                   let parsed = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
                 print("❌ Failed to parse Claude JSON")
                 return ClaudeReceiptResponse()
