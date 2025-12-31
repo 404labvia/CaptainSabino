@@ -102,9 +102,6 @@ struct SettingsView: View {
                     }
                 }
 
-                let localStorage = ReceiptStorageService.shared.getStorageUsed()
-                LabeledContent("Storage used", value: localStorage.formattedByteSize)
-
                 if !learnedKeywords.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {

@@ -301,24 +301,12 @@ struct AddExpenseView: View {
             return
         }
 
-        // Save receipt photo if present
-        var receiptImagePath: String?
-        if let receiptImage = receiptImage {
-            receiptImagePath = ReceiptStorageService.shared.saveReceipt(
-                image: receiptImage,
-                date: date,
-                amount: amountValue,
-                categoryName: selectedCategory.name
-            )
-        }
-
         // Create and save expense
         let newExpense = Expense(
             amount: amountValue,
             category: selectedCategory,
             date: date,
-            notes: notes.trimmingCharacters(in: .whitespacesAndNewlines),
-            receiptImagePath: receiptImagePath
+            notes: notes.trimmingCharacters(in: .whitespacesAndNewlines)
         )
 
         modelContext.insert(newExpense)

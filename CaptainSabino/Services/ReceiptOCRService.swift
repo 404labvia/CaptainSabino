@@ -231,6 +231,11 @@ class ReceiptOCRService {
         2. DATE: Find the receipt date
            - Usually printed at the top or bottom of the receipt
            - Return in YYYY-MM-DD format (e.g., 2024-12-23)
+           - DATE FORMAT DETECTION: Determine if European (DD/MM/YYYY) or American (MM/DD/YYYY):
+             * If day value > 12, it's definitely European (e.g., 25/11/2024 = Nov 25)
+             * If currency is € (Euro) or language is Italian/French/German/Spanish → European format
+             * If currency is $ (USD) or language is English-only with US context → American format
+             * When ambiguous (both values ≤ 12), use context clues from merchant/language
 
         3. MERCHANT: Extract the store/business name
            - Usually the first 1-2 lines of the receipt
