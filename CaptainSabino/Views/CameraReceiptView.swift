@@ -237,8 +237,8 @@ class CameraManager: NSObject, ObservableObject {
             setupCameraSession()
 
         case .notDetermined:
-            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
-                Task { @MainActor in
+            AVCaptureDevice.requestAccess(for: .video) { granted in
+                DispatchQueue.main.async { [weak self] in
                     if granted {
                         self?.isAuthorized = true
                         self?.setupCameraSession()
