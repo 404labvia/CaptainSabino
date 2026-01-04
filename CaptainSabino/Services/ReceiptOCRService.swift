@@ -273,7 +273,7 @@ class ReceiptOCRService {
             print("📝 Claude response: \(text)")
 
             // Pulisci la risposta da eventuali backtick markdown
-            var cleanedText = text
+            let cleanedText = text
                 .replacingOccurrences(of: "```json", with: "")
                 .replacingOccurrences(of: "```JSON", with: "")
                 .replacingOccurrences(of: "```", with: "")

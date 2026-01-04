@@ -25,6 +25,9 @@ struct AddExpenseView: View {
     var receiptImage: UIImage?
     var merchantName: String?
 
+    // Callback per flusso fotocamera continuo (chiamato dopo salvataggio)
+    var onSaveCompleted: (() -> Void)?
+
     @State private var amount = ""
     @State private var selectedCategory: Category?
     @State private var date = Date()
@@ -364,6 +367,7 @@ struct AddExpenseView: View {
         do {
             try modelContext.save()
             dismiss()
+            onSaveCompleted?()
         } catch {
             showAlert("Failed to save expense: \(error.localizedDescription)")
         }

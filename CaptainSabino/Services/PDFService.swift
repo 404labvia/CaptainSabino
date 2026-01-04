@@ -271,7 +271,7 @@ class PDFService {
         // Column widths
         let dayWidth: CGFloat = tableWidth * 0.15
         let categoryWidth: CGFloat = tableWidth * 0.55
-        let amountWidth: CGFloat = tableWidth * 0.30
+        _ = tableWidth * 0.30 // amountWidth per completezza layout
 
         // Header
         let headerFont = UIFont.boldSystemFont(ofSize: 10)
@@ -425,7 +425,7 @@ class PDFService {
         // Draw pie sectors
         var startAngle: CGFloat = -.pi / 2 // Start at top (12 o'clock)
 
-        for (categoryName, data) in sortedCategories {
+        for (_, data) in sortedCategories {
             let percentage = data.amount / totalAmount
             let endAngle = startAngle + (2 * .pi * percentage)
 
