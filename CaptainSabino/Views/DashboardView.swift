@@ -179,7 +179,7 @@ struct DashboardView: View {
 
                 // Total in the center
                 VStack(spacing: 4) {
-                    Text(String(format: "€%.2f", totalAmount))
+                    Text(totalAmount.formattedCurrency)
                         .font(.system(size: 28, weight: .bold, design: .rounded))
                         .foregroundStyle(.primary)
 
@@ -227,7 +227,7 @@ struct DashboardView: View {
                             .foregroundStyle(.secondary)
                             .frame(minWidth: 40, alignment: .trailing)
 
-                        Text(String(format: "€%.2f", item.total))
+                        Text(item.total.formattedCurrency)
                             .font(.body)
                             .fontWeight(.semibold)
                             .frame(minWidth: 80, alignment: .trailing)

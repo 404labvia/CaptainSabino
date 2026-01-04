@@ -351,11 +351,11 @@ class PDFService {
                 }
 
                 // Category and amount
-                "\(categoryName) €\(String(format: "%.2f", categoryTotal))".draw(at: CGPoint(x: leftMargin + dayWidth + 8, y: y + 5), withAttributes: cellAttributes)
+                "\(categoryName) \(formatCurrency(categoryTotal))".draw(at: CGPoint(x: leftMargin + dayWidth + 8, y: y + 5), withAttributes: cellAttributes)
 
                 // Day total (only on first row)
                 if isFirstRowForDay {
-                    String(format: "€%.2f", dayTotal).draw(at: CGPoint(x: leftMargin + dayWidth + categoryWidth + 8, y: y + 5), withAttributes: cellAttributes)
+                    formatCurrency(dayTotal).draw(at: CGPoint(x: leftMargin + dayWidth + categoryWidth + 8, y: y + 5), withAttributes: cellAttributes)
                     isFirstRowForDay = false
                 }
 
@@ -379,7 +379,7 @@ class PDFService {
         ]
 
         "TOTAL".draw(at: CGPoint(x: leftMargin + 8, y: y + 8), withAttributes: footerAttributes)
-        String(format: "€%.2f", totalAmount).draw(at: CGPoint(x: leftMargin + dayWidth + categoryWidth + 8, y: y + 8), withAttributes: footerAttributes)
+        formatCurrency(totalAmount).draw(at: CGPoint(x: leftMargin + dayWidth + categoryWidth + 8, y: y + 8), withAttributes: footerAttributes)
 
         return y + 40
     }
@@ -466,7 +466,7 @@ class PDFService {
         innerCircle.fill()
 
         // Draw total amount in center
-        let totalText = String(format: "€%.2f", totalAmount)
+        let totalText = formatCurrency(totalAmount)
         let totalFont = UIFont.boldSystemFont(ofSize: 18)
         let totalAttributes: [NSAttributedString.Key: Any] = [
             .font: totalFont,
@@ -535,5 +535,17 @@ class PDFService {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM"
         return formatter.string(from: date)
+    }
+
+    /// Formatta valuta in formato italiano: € 2.460,50
+    private func formatCurrency(_ amount: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencySymbol = "€ "
+        formatter.currencyDecimalSeparator = ","
+        formatter.currencyGroupingSeparator = "."
+        formatter.minimumFractionDigits = 2
+        formatter.maximumFractionDigits = 2
+        return formatter.string(from: NSNumber(value: amount)) ?? "€ 0,00"
     }
 }

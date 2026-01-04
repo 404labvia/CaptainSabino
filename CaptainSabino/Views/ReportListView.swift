@@ -158,8 +158,6 @@ struct ReportListView: View {
                         expenseCount: expenseCount(for: report.month),
                         totalAmount: totalAmount(for: report.month),
                         onCardTap: { viewReport(report) },
-                        onShare: { shareReport(report) },
-                        onRegenerate: { regenerateReport(report) },
                         onDelete: {
                             reportToDelete = report
                             showingDeleteAlert = true
@@ -243,12 +241,8 @@ struct ReportListView: View {
     }
 
     private func shareReport(_ report: ReportInfo) {
-        // Fix per bug schermata bianca alla prima apertura:
-        // Imposta l'URL prima e poi presenta lo sheet con un piccolo delay
         documentToShare = report.url
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            showingShareSheet = true
-        }
+        showingShareSheet = true
     }
 
     private func regenerateReport(_ report: ReportInfo) {
@@ -344,7 +338,7 @@ struct GenerateReportSheet: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
 
-                    Text(String(format: "€%.2f", totalAmount))
+                    Text(totalAmount.formattedCurrency)
                         .font(.title2)
                         .fontWeight(.semibold)
                 }
@@ -436,8 +430,6 @@ struct ReportCard: View {
     let expenseCount: Int
     let totalAmount: Double
     let onCardTap: () -> Void
-    let onShare: () -> Void
-    let onRegenerate: () -> Void
     let onDelete: () -> Void
 
     var body: some View {
@@ -462,35 +454,15 @@ struct ReportCard: View {
                         .font(.headline)
                         .foregroundStyle(.primary)
 
-                    Text("\(expenseCount) expenses • \(String(format: "€%.2f", totalAmount))")
+                    Text("\(expenseCount) expenses • \(totalAmount.formattedCurrency)")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
 
                 Spacer()
 
-                // Actions Menu
+                // Actions Menu (solo Delete)
                 Menu {
-                    Button {
-                        onCardTap()
-                    } label: {
-                        Label("View", systemImage: "eye")
-                    }
-
-                    Button {
-                        onShare()
-                    } label: {
-                        Label("Share", systemImage: "square.and.arrow.up")
-                    }
-
-                    Button {
-                        onRegenerate()
-                    } label: {
-                        Label("Regenerate", systemImage: "arrow.clockwise")
-                    }
-
-                    Divider()
-
                     Button(role: .destructive) {
                         onDelete()
                     } label: {

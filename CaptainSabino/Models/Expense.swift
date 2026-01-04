@@ -75,9 +75,9 @@ final class Expense {
         return formatter.string(from: date)
     }
     
-    /// Ritorna l'importo formattato con simbolo Euro
+    /// Ritorna l'importo formattato con simbolo Euro (formato italiano)
     var formattedAmount: String {
-        return String(format: "€%.2f", amount)
+        return amount.formattedCurrency
     }
 
     /// Ritorna la chiave per raggruppamento per giorno (data senza ora)
@@ -133,5 +133,22 @@ extension Expense {
                 notes: "Restaurant supplies"
             )
         ]
+    }
+}
+
+// MARK: - Extension per formattazione valuta italiana
+
+extension Double {
+    /// Formatta il valore come valuta italiana: € 2.460,50
+    /// (migliaia con punto, decimali con virgola)
+    var formattedCurrency: String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencySymbol = "€ "
+        formatter.currencyDecimalSeparator = ","
+        formatter.currencyGroupingSeparator = "."
+        formatter.minimumFractionDigits = 2
+        formatter.maximumFractionDigits = 2
+        return formatter.string(from: NSNumber(value: self)) ?? "€ 0,00"
     }
 }

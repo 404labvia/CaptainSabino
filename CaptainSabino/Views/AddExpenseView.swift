@@ -25,9 +25,6 @@ struct AddExpenseView: View {
     var receiptImage: UIImage?
     var merchantName: String?
 
-    // Callback chiamato dopo il salvataggio (per flusso fotocamera continuo)
-    var onSaveCompleted: (() -> Void)?
-
     @State private var amount = ""
     @State private var selectedCategory: Category?
     @State private var date = Date()
@@ -35,45 +32,35 @@ struct AddExpenseView: View {
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @State private var showingDatePicker = false
-    @State private var showingDuplicateAlert = false
+    @State private var isPossibleDuplicate = false
+    @State private var tempSelectedDate = Date()
 
     // MARK: - Body
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                ScrollView {
-                    VStack(spacing: 24) {
-                        // Amount Section
-                        amountSection
+            ScrollView {
+                VStack(spacing: 24) {
+                    // Amount Section
+                    amountSection
 
-                        // Date Section (spostata sotto Amount)
-                        dateSection
+                    // Category Section
+                    categorySection
 
-                        // Category Section
-                        categorySection
+                    // Date Section
+                    dateSection
 
-                        // Notes Section
-                        notesSection
+                    // Notes Section
+                    notesSection
 
-                        // Receipt Photo Section (if present)
-                        if receiptImage != nil {
-                            receiptPhotoSection
-                        }
-
-                        // Spazio per il bottone fisso in basso
-                        Spacer().frame(height: 80)
+                    // Badge duplicato (se rilevato)
+                    if isPossibleDuplicate {
+                        duplicateBadge
                     }
-                    .padding()
                 }
-                .background(Color(.systemGroupedBackground))
-
-                // Save Button fisso in basso
-                VStack {
-                    Spacer()
-                    saveButtonSection
-                }
+                .padding()
             }
+            .background(Color(.systemGroupedBackground))
             .navigationTitle("New Expense")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -82,57 +69,60 @@ struct AddExpenseView: View {
                         dismiss()
                     }
                 }
+
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Save") {
+                        saveExpense()
+                    }
+                    .fontWeight(.semibold)
+                }
             }
             .sheet(isPresented: $showingDatePicker) {
-                DatePicker(
-                    "Select Date",
-                    selection: $date,
-                    displayedComponents: [.date]
-                )
-                .datePickerStyle(.graphical)
+                NavigationStack {
+                    DatePicker(
+                        "Select Date",
+                        selection: $tempSelectedDate,
+                        displayedComponents: [.date]
+                    )
+                    .datePickerStyle(.graphical)
+                    .navigationTitle("Select Date")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("OK") {
+                                date = tempSelectedDate
+                                checkForDuplicate()
+                                showingDatePicker = false
+                            }
+                            .fontWeight(.semibold)
+                        }
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button("Cancel") {
+                                showingDatePicker = false
+                            }
+                        }
+                    }
+                }
                 .presentationDetents([.medium])
-                .presentationDragIndicator(.visible)
+                .onAppear {
+                    tempSelectedDate = date
+                }
             }
             .alert("Error", isPresented: $showingAlert) {
                 Button("OK") { }
             } message: {
                 Text(alertMessage)
             }
-            .alert("Possible Duplicate", isPresented: $showingDuplicateAlert) {
-                Button("Save Anyway") {
-                    performSave()
-                }
-                Button("Cancel", role: .cancel) { }
-            } message: {
-                Text("An expense with the same amount and date already exists. Do you want to save it anyway?")
-            }
             .onAppear {
                 loadPrefilledData()
             }
+            .onChange(of: amount) { _, _ in
+                checkForDuplicate()
+            }
+            .onChange(of: date) { _, _ in
+                checkForDuplicate()
+            }
         }
-    }
-
-    // MARK: - Save Button Section
-
-    private var saveButtonSection: some View {
-        Button {
-            saveExpense()
-        } label: {
-            Text("Save Expense")
-                .font(.headline)
-                .fontWeight(.bold)
-                .foregroundStyle(.black)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(Color.yellow)
-                .cornerRadius(12)
-        }
-        .padding(.horizontal)
-        .padding(.bottom, 20)
-        .background(
-            Color(.systemGroupedBackground)
-                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: -4)
-        )
     }
 
     // MARK: - View Components
@@ -210,20 +200,8 @@ struct AddExpenseView: View {
                 .font(.title3)
                 .fontWeight(.semibold)
 
-            // Quick buttons + calendario (data più recente a destra)
+            // Quick buttons + calendario
             HStack(spacing: 12) {
-                // Calendario
-                Button {
-                    showingDatePicker = true
-                } label: {
-                    Image(systemName: "calendar")
-                        .font(.title3)
-                        .foregroundStyle(.blue)
-                        .frame(width: 60, height: 44)
-                        .background(Color(.tertiarySystemGroupedBackground))
-                        .cornerRadius(8)
-                }
-
                 // 2 giorni fa
                 QuickDateButton(
                     date: Calendar.current.date(byAdding: .day, value: -2, to: Date()) ?? Date(),
@@ -240,12 +218,24 @@ struct AddExpenseView: View {
                     date = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
                 }
 
-                // Oggi (più recente a destra)
+                // Oggi
                 QuickDateButton(
                     date: Date(),
                     isSelected: isSameDay(date, Date())
                 ) {
                     date = Date()
+                }
+
+                // Calendario
+                Button {
+                    showingDatePicker = true
+                } label: {
+                    Image(systemName: "calendar")
+                        .font(.title3)
+                        .foregroundStyle(.blue)
+                        .frame(width: 60, height: 44)
+                        .background(Color(.tertiarySystemGroupedBackground))
+                        .cornerRadius(8)
                 }
             }
         }
@@ -275,23 +265,21 @@ struct AddExpenseView: View {
         .cornerRadius(12)
     }
 
-    /// Receipt Photo Section
-    private var receiptPhotoSection: some View {
-        HStack {
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundColor(.green)
+    /// Badge per possibile duplicato
+    private var duplicateBadge: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundColor(.white)
 
-            Text("Receipt photo attached")
-                .foregroundColor(.secondary)
-
-            Spacer()
-
-            Image(systemName: "photo")
-                .foregroundColor(.blue)
+            Text("Possible Duplicate")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundColor(.white)
         }
-        .padding()
-        .background(Color(.secondarySystemGroupedBackground))
-        .cornerRadius(12)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Color.red)
+        .cornerRadius(8)
     }
 
     // MARK: - Helper Methods
@@ -325,6 +313,23 @@ struct AddExpenseView: View {
         if let prefilledDate = prefilledDate {
             date = prefilledDate
         }
+
+        // Verifica duplicato dopo aver caricato i dati prefilled
+        checkForDuplicate()
+    }
+
+    /// Verifica se esiste una spesa con stesso importo e stessa data
+    private func checkForDuplicate() {
+        guard let amountValue = Double(amount.replacingOccurrences(of: ",", with: ".")) else {
+            isPossibleDuplicate = false
+            return
+        }
+
+        let calendar = Calendar.current
+        isPossibleDuplicate = existingExpenses.contains { expense in
+            abs(expense.amount - amountValue) < 0.01 &&
+            calendar.isDate(expense.date, inSameDayAs: date)
+        }
     }
 
     private func saveExpense() {
@@ -336,34 +341,8 @@ struct AddExpenseView: View {
         }
 
         // Validate category
-        guard selectedCategory != nil else {
+        guard let selectedCategory = selectedCategory else {
             showAlert("Please select a category")
-            return
-        }
-
-        // Verifica duplicati (stesso importo + stessa data)
-        if hasDuplicate(amount: amountValue, date: date) {
-            showingDuplicateAlert = true
-            return
-        }
-
-        // Procedi con il salvataggio
-        performSave()
-    }
-
-    /// Verifica se esiste già una spesa con lo stesso importo e la stessa data
-    private func hasDuplicate(amount: Double, date: Date) -> Bool {
-        let calendar = Calendar.current
-        return existingExpenses.contains { expense in
-            abs(expense.amount - amount) < 0.01 &&
-            calendar.isDate(expense.date, inSameDayAs: date)
-        }
-    }
-
-    /// Esegue il salvataggio effettivo della spesa
-    private func performSave() {
-        guard let amountValue = Double(amount.replacingOccurrences(of: ",", with: ".")),
-              let selectedCategory = selectedCategory else {
             return
         }
 
@@ -385,8 +364,6 @@ struct AddExpenseView: View {
         do {
             try modelContext.save()
             dismiss()
-            // Chiama il callback dopo il dismiss (per flusso fotocamera continuo)
-            onSaveCompleted?()
         } catch {
             showAlert("Failed to save expense: \(error.localizedDescription)")
         }
