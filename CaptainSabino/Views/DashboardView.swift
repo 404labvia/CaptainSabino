@@ -11,13 +11,21 @@ import Charts
 
 struct DashboardView: View {
     // MARK: - Properties
-    
+
     @Environment(\.modelContext) private var modelContext
     @Query private var expenses: [Expense]
     @Query private var settings: [YachtSettings]
-    
+
     @State private var selectedMonth = Date()
     @State private var showingMonthPicker = false
+    @State private var showingGenerateSheet = false
+    @State private var reportSelectedMonth = Calendar.current.component(.month, from: Date())
+    @State private var reportSelectedYear = Calendar.current.component(.year, from: Date())
+    @State private var isGenerating = false
+    @State private var showingAlert = false
+    @State private var alertMessage = ""
+    @State private var showingToast = false
+    @State private var toastMessage = ""
     
     // MARK: - Body
     
@@ -42,6 +50,44 @@ struct DashboardView: View {
                 .padding()
             }
             .navigationBarHidden(true)
+            .sheet(isPresented: $showingGenerateSheet) {
+                GenerateReportSheet(
+                    selectedMonth: $reportSelectedMonth,
+                    selectedYear: $reportSelectedYear,
+                    isGenerating: $isGenerating,
+                    onGenerate: {
+                        generateReport()
+                    },
+                    onDismiss: {
+                        showingGenerateSheet = false
+                    },
+                    expenseCount: reportExpenseCount,
+                    totalAmount: reportTotalAmount
+                )
+            }
+            .alert("Error", isPresented: $showingAlert) {
+                Button("OK") { }
+            } message: {
+                Text(alertMessage)
+            }
+            .overlay(alignment: .bottom) {
+                if showingToast {
+                    ToastView(message: toastMessage)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .padding(.bottom, 20)
+                }
+            }
+            .onAppear {
+                // Sync report month/year with dashboard selected month
+                let components = Calendar.current.dateComponents([.year, .month], from: selectedMonth)
+                reportSelectedMonth = components.month ?? 1
+                reportSelectedYear = components.year ?? 2024
+            }
+            .onChange(of: selectedMonth) { _, newValue in
+                let components = Calendar.current.dateComponents([.year, .month], from: newValue)
+                reportSelectedMonth = components.month ?? 1
+                reportSelectedYear = components.year ?? 2024
+            }
         }
     }
     
@@ -218,8 +264,8 @@ struct DashboardView: View {
             }
 
             // Generate Report Button
-            NavigationLink {
-                ReportView(selectedMonth: selectedMonth)
+            Button {
+                showingGenerateSheet = true
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "doc.text")
@@ -239,20 +285,86 @@ struct DashboardView: View {
     }
     
     // MARK: - Methods
-    
+
     private var selectedMonthText: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMMM yyyy"
         return formatter.string(from: selectedMonth)
     }
-    
+
     private var isCurrentMonth: Bool {
         Calendar.current.isDate(selectedMonth, equalTo: Date(), toGranularity: .month)
     }
-    
+
     private func changeMonth(by value: Int) {
         if let newDate = Calendar.current.date(byAdding: .month, value: value, to: selectedMonth) {
             selectedMonth = newDate
+        }
+    }
+
+    // MARK: - Report Methods
+
+    private var reportSelectedDate: Date {
+        var components = DateComponents()
+        components.year = reportSelectedYear
+        components.month = reportSelectedMonth
+        components.day = 1
+        return Calendar.current.date(from: components) ?? Date()
+    }
+
+    private var reportExpenseCount: Int {
+        let calendar = Calendar.current
+        return expenses.filter { expense in
+            calendar.isDate(expense.date, equalTo: reportSelectedDate, toGranularity: .month)
+        }.count
+    }
+
+    private var reportTotalAmount: Double {
+        let calendar = Calendar.current
+        return expenses
+            .filter { calendar.isDate($0.date, equalTo: reportSelectedDate, toGranularity: .month) }
+            .reduce(0) { $0 + $1.amount }
+    }
+
+    private func generateReport() {
+        guard let yachtSettings = settings.first else {
+            alertMessage = "Please configure yacht settings first"
+            showingAlert = true
+            return
+        }
+
+        isGenerating = true
+
+        let calendar = Calendar.current
+        let monthExpenses = expenses.filter { expense in
+            calendar.isDate(expense.date, equalTo: reportSelectedDate, toGranularity: .month)
+        }
+
+        do {
+            let _ = try PDFService.shared.generateExpenseReport(
+                expenses: monthExpenses,
+                month: reportSelectedDate,
+                settings: yachtSettings
+            )
+            showingGenerateSheet = false
+            showToast("Report generated successfully")
+        } catch {
+            alertMessage = "Failed to generate report: \(error.localizedDescription)"
+            showingAlert = true
+        }
+
+        isGenerating = false
+    }
+
+    private func showToast(_ message: String) {
+        toastMessage = message
+        withAnimation(.spring(response: 0.3)) {
+            showingToast = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            withAnimation(.spring(response: 0.3)) {
+                showingToast = false
+            }
         }
     }
 }

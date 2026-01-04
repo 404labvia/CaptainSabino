@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import QuickLook
 
 struct ReportListView: View {
     // MARK: - Properties
@@ -26,39 +27,62 @@ struct ReportListView: View {
     @State private var alertMessage = ""
     @State private var documentToShare: URL?
     @State private var showingShareSheet = false
+    @State private var quickLookURL: URL?
+    @State private var showingToast = false
+    @State private var toastMessage = ""
 
     // MARK: - Body
 
     var body: some View {
         NavigationStack {
-            Group {
+            VStack(spacing: 0) {
+                // Title
+                HStack {
+                    Text("Reports")
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
+                    Spacer()
+                }
+                .padding(.horizontal)
+                .padding(.top, 10)
+
+                // Quick Actions (Generate Report)
+                quickActionsSection
+                    .padding(.horizontal)
+                    .padding(.top, 10)
+
+                // Content
                 if reports.isEmpty {
                     emptyStateView
                 } else {
                     reportListView
                 }
             }
-            .navigationTitle("Reports")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showingGenerateSheet = true
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                }
-            }
+            .navigationBarHidden(true)
             .onAppear {
                 loadReports()
             }
             .sheet(isPresented: $showingGenerateSheet) {
-                generateReportSheet
+                GenerateReportSheet(
+                    selectedMonth: $selectedMonth,
+                    selectedYear: $selectedYear,
+                    isGenerating: $isGenerating,
+                    onGenerate: {
+                        generateReport()
+                    },
+                    onDismiss: {
+                        showingGenerateSheet = false
+                    },
+                    expenseCount: expenseCount(for: selectedDate),
+                    totalAmount: totalAmount(for: selectedDate)
+                )
             }
             .sheet(isPresented: $showingShareSheet) {
                 if let url = documentToShare {
                     ShareSheet(items: [url])
                 }
             }
+            .quickLookPreview($quickLookURL)
             .alert("Delete Report?", isPresented: $showingDeleteAlert) {
                 Button("Cancel", role: .cancel) { }
                 Button("Delete", role: .destructive) {
@@ -74,10 +98,37 @@ struct ReportListView: View {
             } message: {
                 Text(alertMessage)
             }
+            .overlay(alignment: .bottom) {
+                if showingToast {
+                    ToastView(message: toastMessage)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .padding(.bottom, 20)
+                }
+            }
         }
     }
 
     // MARK: - View Components
+
+    private var quickActionsSection: some View {
+        Button {
+            showingGenerateSheet = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "doc.badge.plus")
+                    .font(.title3)
+                Text("Generate Report")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(Color.green)
+            .foregroundStyle(.white)
+            .cornerRadius(12)
+            .shadow(color: .black.opacity(0.2), radius: 6, x: 0, y: 3)
+        }
+    }
 
     private var emptyStateView: some View {
         VStack(spacing: 20) {
@@ -89,12 +140,13 @@ struct ReportListView: View {
                 .font(.title2)
                 .fontWeight(.semibold)
 
-            Text("Tap + to generate your first expense report")
+            Text("Tap Generate Report to create your first expense report")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
         .padding()
+        .frame(maxHeight: .infinity)
     }
 
     private var reportListView: some View {
@@ -118,96 +170,6 @@ struct ReportListView: View {
             .padding()
         }
         .background(Color(.systemGroupedBackground))
-    }
-
-    private var generateReportSheet: some View {
-        NavigationStack {
-            VStack(spacing: 24) {
-                Text("Select Month")
-                    .font(.headline)
-                    .padding(.top)
-
-                // Month/Year Picker
-                HStack(spacing: 0) {
-                    Picker("Month", selection: $selectedMonth) {
-                        ForEach(1...12, id: \.self) { month in
-                            Text(monthName(month)).tag(month)
-                        }
-                    }
-                    .pickerStyle(.wheel)
-                    .frame(maxWidth: .infinity)
-
-                    Picker("Year", selection: $selectedYear) {
-                        ForEach((2020...2030), id: \.self) { year in
-                            Text(String(year)).tag(year)
-                        }
-                    }
-                    .pickerStyle(.wheel)
-                    .frame(width: 100)
-                }
-                .frame(height: 150)
-
-                // Info about expenses
-                let count = expenseCount(for: selectedDate)
-                let total = totalAmount(for: selectedDate)
-
-                VStack(spacing: 8) {
-                    Text("\(count) expenses")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-
-                    Text(String(format: "€%.2f", total))
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                }
-                .padding()
-                .frame(maxWidth: .infinity)
-                .background(Color(.secondarySystemGroupedBackground))
-                .cornerRadius(12)
-
-                if count == 0 {
-                    Text("No expenses for this month")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                }
-
-                Spacer()
-
-                // Generate Button
-                Button {
-                    generateReport()
-                } label: {
-                    HStack {
-                        if isGenerating {
-                            ProgressView()
-                                .tint(.white)
-                        } else {
-                            Image(systemName: "doc.badge.plus")
-                        }
-                        Text(isGenerating ? "Generating..." : "Generate Report")
-                    }
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(count > 0 ? Color.blue : Color.gray)
-                    .cornerRadius(12)
-                }
-                .disabled(count == 0 || isGenerating)
-                .padding(.bottom)
-            }
-            .padding()
-            .navigationTitle("New Report")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") {
-                        showingGenerateSheet = false
-                    }
-                }
-            }
-        }
-        .presentationDetents([.medium])
     }
 
     // MARK: - Helper Properties
@@ -267,6 +229,7 @@ struct ReportListView: View {
             )
             loadReports()
             showingGenerateSheet = false
+            showToast("Report generated successfully")
         } catch {
             alertMessage = "Failed to generate report: \(error.localizedDescription)"
             showingAlert = true
@@ -276,8 +239,7 @@ struct ReportListView: View {
     }
 
     private func viewReport(_ report: ReportInfo) {
-        documentToShare = report.url
-        showingShareSheet = true
+        quickLookURL = report.url
     }
 
     private func shareReport(_ report: ReportInfo) {
@@ -304,6 +266,7 @@ struct ReportListView: View {
                 settings: yachtSettings
             )
             loadReports()
+            showToast("Report regenerated successfully")
         } catch {
             alertMessage = "Failed to regenerate report: \(error.localizedDescription)"
             showingAlert = true
@@ -318,6 +281,147 @@ struct ReportListView: View {
             alertMessage = "Failed to delete report: \(error.localizedDescription)"
             showingAlert = true
         }
+    }
+
+    private func showToast(_ message: String) {
+        toastMessage = message
+        withAnimation(.spring(response: 0.3)) {
+            showingToast = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            withAnimation(.spring(response: 0.3)) {
+                showingToast = false
+            }
+        }
+    }
+}
+
+// MARK: - Generate Report Sheet
+
+struct GenerateReportSheet: View {
+    @Binding var selectedMonth: Int
+    @Binding var selectedYear: Int
+    @Binding var isGenerating: Bool
+    let onGenerate: () -> Void
+    let onDismiss: () -> Void
+    let expenseCount: Int
+    let totalAmount: Double
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                Text("Select Month")
+                    .font(.headline)
+                    .padding(.top)
+
+                // Month/Year Picker
+                HStack(spacing: 0) {
+                    Picker("Month", selection: $selectedMonth) {
+                        ForEach(1...12, id: \.self) { month in
+                            Text(monthName(month)).tag(month)
+                        }
+                    }
+                    .pickerStyle(.wheel)
+                    .frame(maxWidth: .infinity)
+
+                    Picker("Year", selection: $selectedYear) {
+                        ForEach((2020...2030), id: \.self) { year in
+                            Text(String(year)).tag(year)
+                        }
+                    }
+                    .pickerStyle(.wheel)
+                    .frame(width: 100)
+                }
+                .frame(height: 150)
+
+                // Info about expenses
+                VStack(spacing: 8) {
+                    Text("\(expenseCount) expenses")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+
+                    Text(String(format: "€%.2f", totalAmount))
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                }
+                .padding()
+                .frame(maxWidth: .infinity)
+                .background(Color(.secondarySystemGroupedBackground))
+                .cornerRadius(12)
+
+                if expenseCount == 0 {
+                    Text("No expenses for this month")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+
+                Spacer()
+
+                // Generate Button
+                Button {
+                    onGenerate()
+                } label: {
+                    HStack {
+                        if isGenerating {
+                            ProgressView()
+                                .tint(.white)
+                        } else {
+                            Image(systemName: "doc.badge.plus")
+                        }
+                        Text(isGenerating ? "Generating..." : "Generate PDF")
+                    }
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(expenseCount > 0 ? Color.green : Color.gray)
+                    .cornerRadius(12)
+                }
+                .disabled(expenseCount == 0 || isGenerating)
+                .padding(.bottom)
+            }
+            .padding()
+            .navigationTitle("New Report")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") {
+                        onDismiss()
+                    }
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+
+    private func monthName(_ month: Int) -> String {
+        let formatter = DateFormatter()
+        return formatter.monthSymbols[month - 1]
+    }
+}
+
+// MARK: - Toast View
+
+struct ToastView: View {
+    let message: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundColor(.green)
+                .font(.title3)
+
+            Text(message)
+                .font(.subheadline)
+                .fontWeight(.medium)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 14)
+        .background(
+            Capsule()
+                .fill(.ultraThinMaterial)
+                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+        )
     }
 }
 

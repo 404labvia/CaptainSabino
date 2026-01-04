@@ -10,15 +10,24 @@ import SwiftData
 
 struct ExpenseListView: View {
     // MARK: - Properties
-    
+
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Expense.date, order: .reverse) private var expenses: [Expense]
     @Query private var categories: [Category]
-    
+    @Query private var settings: [YachtSettings]
+
     @State private var searchText = ""
     @State private var selectedCategory: Category?
     @State private var showingFilterSheet = false
     @State private var showingAddExpense = false
+    @State private var showingGenerateSheet = false
+    @State private var reportSelectedMonth = Calendar.current.component(.month, from: Date())
+    @State private var reportSelectedYear = Calendar.current.component(.year, from: Date())
+    @State private var isGenerating = false
+    @State private var showingAlert = false
+    @State private var alertMessage = ""
+    @State private var showingToast = false
+    @State private var toastMessage = ""
     
     // MARK: - Body
     
@@ -54,6 +63,33 @@ struct ExpenseListView: View {
             }
             .sheet(isPresented: $showingFilterSheet) {
                 FilterView(selectedCategory: $selectedCategory, categories: categories)
+            }
+            .sheet(isPresented: $showingGenerateSheet) {
+                GenerateReportSheet(
+                    selectedMonth: $reportSelectedMonth,
+                    selectedYear: $reportSelectedYear,
+                    isGenerating: $isGenerating,
+                    onGenerate: {
+                        generateReport()
+                    },
+                    onDismiss: {
+                        showingGenerateSheet = false
+                    },
+                    expenseCount: reportExpenseCount,
+                    totalAmount: reportTotalAmount
+                )
+            }
+            .alert("Error", isPresented: $showingAlert) {
+                Button("OK") { }
+            } message: {
+                Text(alertMessage)
+            }
+            .overlay(alignment: .bottom) {
+                if showingToast {
+                    ToastView(message: toastMessage)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .padding(.bottom, 20)
+                }
             }
         }
     }
@@ -103,8 +139,8 @@ struct ExpenseListView: View {
             }
 
             // Report Button
-            NavigationLink {
-                ReportView()
+            Button {
+                showingGenerateSheet = true
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "doc.text")
@@ -215,6 +251,72 @@ struct ExpenseListView: View {
             formatter.dateStyle = .long
             formatter.timeStyle = .none
             return formatter.string(from: day)
+        }
+    }
+
+    // MARK: - Report Methods
+
+    private var reportSelectedDate: Date {
+        var components = DateComponents()
+        components.year = reportSelectedYear
+        components.month = reportSelectedMonth
+        components.day = 1
+        return Calendar.current.date(from: components) ?? Date()
+    }
+
+    private var reportExpenseCount: Int {
+        let calendar = Calendar.current
+        return expenses.filter { expense in
+            calendar.isDate(expense.date, equalTo: reportSelectedDate, toGranularity: .month)
+        }.count
+    }
+
+    private var reportTotalAmount: Double {
+        let calendar = Calendar.current
+        return expenses
+            .filter { calendar.isDate($0.date, equalTo: reportSelectedDate, toGranularity: .month) }
+            .reduce(0) { $0 + $1.amount }
+    }
+
+    private func generateReport() {
+        guard let yachtSettings = settings.first else {
+            alertMessage = "Please configure yacht settings first"
+            showingAlert = true
+            return
+        }
+
+        isGenerating = true
+
+        let calendar = Calendar.current
+        let monthExpenses = expenses.filter { expense in
+            calendar.isDate(expense.date, equalTo: reportSelectedDate, toGranularity: .month)
+        }
+
+        do {
+            let _ = try PDFService.shared.generateExpenseReport(
+                expenses: monthExpenses,
+                month: reportSelectedDate,
+                settings: yachtSettings
+            )
+            showingGenerateSheet = false
+            showToast("Report generated successfully")
+        } catch {
+            alertMessage = "Failed to generate report: \(error.localizedDescription)"
+            showingAlert = true
+        }
+
+        isGenerating = false
+    }
+
+    private func showToast(_ message: String) {
+        toastMessage = message
+        withAnimation(.spring(response: 0.3)) {
+            showingToast = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            withAnimation(.spring(response: 0.3)) {
+                showingToast = false
+            }
         }
     }
 }
@@ -334,5 +436,5 @@ struct FilterView: View {
 
 #Preview {
     ExpenseListView()
-        .modelContainer(for: [Expense.self, Category.self])
+        .modelContainer(for: [Expense.self, Category.self, YachtSettings.self])
 }
