@@ -15,9 +15,7 @@ struct OnboardingView: View {
     @Query private var settings: [YachtSettings]
     
     @State private var yachtName = ""
-    @State private var ownerEmail = ""
     @State private var captainName = ""
-    @State private var captainEmail = ""
     @State private var showingAlert = false
     @State private var alertMessage = ""
     
@@ -91,34 +89,12 @@ struct OnboardingView: View {
                     .autocorrectionDisabled()
             }
 
-            // Owner Email
-            VStack(alignment: .leading, spacing: 8) {
-                Label("Owner Email", systemImage: "envelope")
-                    .font(.headline)
-                TextField("owner@example.com", text: $ownerEmail)
-                    .textFieldStyle(.roundedBorder)
-                    .keyboardType(.emailAddress)
-                    .autocapitalization(.none)
-                    .autocorrectionDisabled()
-            }
-
             // Captain Name
             VStack(alignment: .leading, spacing: 8) {
                 Label("Captain Name", systemImage: "person.badge.shield.checkmark")
                     .font(.headline)
                 TextField("Enter captain name", text: $captainName)
                     .textFieldStyle(.roundedBorder)
-                    .autocorrectionDisabled()
-            }
-
-            // Captain Email
-            VStack(alignment: .leading, spacing: 8) {
-                Label("Captain Email", systemImage: "envelope.badge")
-                    .font(.headline)
-                TextField("captain@example.com", text: $captainEmail)
-                    .textFieldStyle(.roundedBorder)
-                    .keyboardType(.emailAddress)
-                    .autocapitalization(.none)
                     .autocorrectionDisabled()
             }
         }
@@ -150,18 +126,8 @@ struct OnboardingView: View {
             return
         }
 
-        guard !ownerEmail.isEmpty, ownerEmail.contains("@") else {
-            showAlert("Please enter a valid owner email")
-            return
-        }
-
         guard !captainName.isEmpty else {
             showAlert("Please enter captain name")
-            return
-        }
-
-        guard !captainEmail.isEmpty, captainEmail.contains("@") else {
-            showAlert("Please enter a valid captain email")
             return
         }
 
@@ -169,16 +135,12 @@ struct OnboardingView: View {
         do {
             if let existingSettings = settings.first {
                 existingSettings.yachtName = yachtName
-                existingSettings.ownerEmail = ownerEmail
                 existingSettings.captainName = captainName
-                existingSettings.captainEmail = captainEmail
                 existingSettings.touch()
             } else {
                 let newSettings = YachtSettings(
                     yachtName: yachtName,
-                    ownerEmail: ownerEmail,
                     captainName: captainName,
-                    captainEmail: captainEmail,
                     claudeAPIKey: nil
                 )
                 modelContext.insert(newSettings)

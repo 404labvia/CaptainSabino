@@ -18,14 +18,8 @@ final class YachtSettings {
     /// Nome dello yacht
     var yachtName: String
 
-    /// Email dell'armatore/destinatario report
-    var ownerEmail: String
-
     /// Nome del comandante
     var captainName: String
-
-    /// Email del comandante (mittente report)
-    var captainEmail: String
 
     /// Data di creazione/configurazione iniziale
     var createdAt: Date
@@ -41,22 +35,16 @@ final class YachtSettings {
     /// Inizializzatore per creare le impostazioni
     /// - Parameters:
     ///   - yachtName: Nome dello yacht
-    ///   - ownerEmail: Email armatore (destinatario)
     ///   - captainName: Nome comandante
-    ///   - captainEmail: Email comandante (mittente)
     ///   - claudeAPIKey: Chiave API Claude opzionale (default: nil)
     init(
         yachtName: String = "",
-        ownerEmail: String = "",
         captainName: String = "",
-        captainEmail: String = "",
         claudeAPIKey: String? = nil
     ) {
         self.id = UUID()
         self.yachtName = yachtName
-        self.ownerEmail = ownerEmail
         self.captainName = captainName
-        self.captainEmail = captainEmail
         self.claudeAPIKey = claudeAPIKey
         self.createdAt = Date()
         self.updatedAt = Date()
@@ -71,12 +59,7 @@ final class YachtSettings {
 
     /// Verifica se le impostazioni sono complete
     var isComplete: Bool {
-        return !yachtName.isEmpty &&
-               !ownerEmail.isEmpty &&
-               !captainName.isEmpty &&
-               !captainEmail.isEmpty &&
-               ownerEmail.contains("@") &&
-               captainEmail.contains("@")
+        return !yachtName.isEmpty && !captainName.isEmpty
     }
 }
 
@@ -87,9 +70,7 @@ extension YachtSettings {
     static var sample: YachtSettings {
         return YachtSettings(
             yachtName: "Azure Dream",
-            ownerEmail: "owner@example.com",
-            captainName: "Marco Bianchi",
-            captainEmail: "captain@example.com"
+            captainName: "Marco Bianchi"
         )
     }
 }

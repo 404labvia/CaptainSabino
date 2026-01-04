@@ -103,14 +103,9 @@ extension Category {
                 color: "#FB8C00"  // Arancione
             ),
             Category(
-                name: "Water Test",
-                icon: "drop.triangle",
-                color: "#03A9F4"  // Azzurro
-            ),
-            Category(
-                name: "Welder",
-                icon: "flame",
-                color: "#FF6F00"  // Arancione scuro
+                name: "Parking",
+                icon: "car.fill",
+                color: "#5E35B1"  // Viola
             ),
             Category(
                 name: "Tender Fuel",
