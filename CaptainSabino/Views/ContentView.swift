@@ -14,12 +14,10 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var categories: [Category]
     @Query private var settings: [YachtSettings]
-    @Query private var reminders: [Reminder]
     @Query private var learnedKeywords: [LearnedKeyword]
     @State private var showingOnboarding = false
     @State private var showingAddMenu = false
     @State private var showingAddExpense = false
-    @State private var showingAddReminder = false
     @State private var showingCameraReceipt = false
     @State private var isProcessingReceipt = false
     @State private var processingMessage = "Processing receipt..."
@@ -63,19 +61,12 @@ struct ContentView: View {
                             }
                             .tag(2)
 
-                        // Tab 3: Reminders
-                        Group {
-                            if let badge = remindersBadge {
-                                ReminderListView()
-                                    .badge(badge)
-                            } else {
-                                ReminderListView()
+                        // Tab 3: Reports
+                        ReportListView()
+                            .tabItem {
+                                Label("Reports", systemImage: "doc.text")
                             }
-                        }
-                        .tabItem {
-                            Label("Reminders", systemImage: "bell")
-                        }
-                        .tag(3)
+                            .tag(3)
 
                         // Tab 4: Settings
                         SettingsView()
@@ -114,9 +105,6 @@ struct ContentView: View {
                         receiptImage: capturedReceiptImage,
                         merchantName: capturedMerchantName
                     )
-                }
-                .sheet(isPresented: $showingAddReminder) {
-                    AddReminderView()
                 }
                 .sheet(isPresented: $showingCameraReceipt) {
                     CameraReceiptView { capturedImage in
@@ -205,15 +193,6 @@ struct ContentView: View {
 
     private var needsOnboarding: Bool {
         return settings.isEmpty || !settings[0].isComplete
-    }
-
-    private var activeRemindersCount: Int {
-        reminders.filter { !$0.isCompleted }.count
-    }
-
-    private var remindersBadge: Int? {
-        let count = activeRemindersCount
-        return count > 0 ? count : nil
     }
 
     // MARK: - Methods
@@ -326,11 +305,7 @@ struct ContentView: View {
     }
 
     private func handleAddButtonTap() {
-        if selectedTab == 3 {
-            showingAddReminder = true
-        } else {
-            showingAddMenu = true
-        }
+        showingAddMenu = true
     }
 
     private func processReceiptWithOCR(image: UIImage) async {
@@ -379,5 +354,5 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
-        .modelContainer(for: [Expense.self, Category.self, Reminder.self, YachtSettings.self])
+        .modelContainer(for: [Expense.self, Category.self, YachtSettings.self])
 }
