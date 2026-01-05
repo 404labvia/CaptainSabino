@@ -62,7 +62,8 @@ final class Expense {
     var receiptImagePath: String?
 
     /// Tipo di inserimento della spesa (Manual, Receipt, Invoice)
-    var entryTypeRaw: String
+    /// Default "C" per retrocompatibilità con dati esistenti
+    var entryTypeRaw: String = "C"
 
     /// Entry type come enum (computed property per SwiftData compatibility)
     var entryType: EntryType {
