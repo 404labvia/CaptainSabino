@@ -19,24 +19,25 @@ CaptainSabino è un'applicazione SwiftUI con SwiftData per tracciare le spese de
 ```
 CaptainSabino/
 ├── Models/
-│   ├── Expense.swift        # Modello spesa principale + formattedCurrency extension
+│   ├── Expense.swift        # Modello spesa + EntryType enum + formattedCurrency
 │   ├── Category.swift       # Categorie spese (predefinite + custom)
 │   ├── YachtSettings.swift  # Impostazioni yacht e API key
 │   ├── LearnedKeyword.swift # Keywords apprese per OCR
 │   └── Reminder.swift       # Promemoria (non attivo in UI)
 ├── Views/
-│   ├── ContentView.swift    # Tab bar principale + flusso fotocamera continuo
+│   ├── ContentView.swift    # Tab bar + menu 3 opzioni (Manual/Receipt/Invoice)
 │   ├── DashboardView.swift  # Dashboard con grafici a torta
-│   ├── ExpenseListView.swift # Lista spese
+│   ├── ExpenseListView.swift # Lista spese + EntryTypeBadge (C/R/I)
 │   ├── AddExpenseView.swift  # Aggiunta spesa (design moderno con ZStack)
 │   ├── EditExpenseView.swift # Modifica spesa
 │   ├── ReportListView.swift  # Lista report PDF salvati
 │   ├── SettingsView.swift    # Impostazioni (solo yacht name e API key)
 │   ├── OnboardingView.swift  # Setup iniziale (semplificato)
-│   └── CameraReceiptView.swift # Scansione scontrini
+│   ├── CameraReceiptView.swift # Scansione scontrini
+│   └── InvoicePDFPickerView.swift # Picker per upload fatture PDF
 ├── Services/
-│   ├── ReceiptOCRService.swift # OCR con Claude Vision (solo formato EU)
-│   ├── PDFService.swift        # Generazione PDF report (formato italiano)
+│   ├── ReceiptOCRService.swift # OCR scontrini + fatture (Claude Vision)
+│   ├── PDFService.swift        # Report PDF con colonna Type
 │   ├── NotificationService.swift # Notifiche locali
 │   └── EmailService.swift      # Invio email
 └── CaptainSabinoApp.swift      # Entry point
@@ -73,6 +74,21 @@ CaptainSabino/
 - Sistema di learned keywords per migliorare riconoscimento categoria
 - **Flusso fotocamera continuo**: dopo salvataggio da scan, ritorna automaticamente alla fotocamera
 
+### Upload Fatture (PDF)
+- Supporta upload di file PDF tramite document picker
+- `InvoicePDFPickerView` per selezione file
+- Estrae immagini da tutte le pagine del PDF
+- Prompt Claude ottimizzato per fatture italiane
+- Riconosce: Totale Fattura, Data Emissione, Fornitore, Categoria
+
+### Entry Type Tracking
+Ogni spesa ha un tipo di inserimento:
+- **C** (Cash/Manual) - Inserimento manuale, colore arancione
+- **R** (Receipt) - Scansione scontrino, colore verde
+- **I** (Invoice) - Upload fattura PDF, colore viola
+
+Badge visibile nella lista spese e colonna Type nel report PDF.
+
 ### Categorie Spese
 Categorie predefinite: Fuel, Food, Maintenance, Crew, Supplies, Transport, Mooring, Insurance, Communication, **Parking**, Other
 - Rimossi: Welder, Water Test
@@ -85,6 +101,8 @@ Categorie predefinite: Fuel, Food, Maintenance, Crew, Supplies, Transport, Moori
 ### Report PDF
 - Salvati in `Documents/Reports/`
 - Includono grafico a torta per categorie
+- **Colonna Type** nella tabella dettagli (mostra C/R/I)
+- **Legenda** nell'header: "Entry Types: C = Cash/Manual, R = Receipt, I = Invoice"
 - **Click su card apre PDF** (QuickLook)
 - **Menu opzioni**: solo Delete
 - Ordinati per data più recente

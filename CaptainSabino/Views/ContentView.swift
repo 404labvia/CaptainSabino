@@ -19,6 +19,7 @@ struct ContentView: View {
     @State private var showingAddMenu = false
     @State private var showingAddExpense = false
     @State private var showingCameraReceipt = false
+    @State private var showingInvoicePicker = false
     @State private var isProcessingReceipt = false
     @State private var processingMessage = "Processing receipt..."
     @State private var prefilledAmount: Double?
@@ -26,6 +27,7 @@ struct ContentView: View {
     @State private var prefilledDate: Date?
     @State private var capturedReceiptImage: UIImage?
     @State private var capturedMerchantName: String?
+    @State private var currentEntryType: EntryType = .manual
     @State private var selectedTab = 0
     @State private var showingOCRFailureAlert = false
     @State private var showingAPIKeyMissingAlert = false
@@ -105,6 +107,7 @@ struct ContentView: View {
                         prefilledDate: prefilledDate,
                         receiptImage: capturedReceiptImage,
                         merchantName: capturedMerchantName,
+                        entryType: currentEntryType,
                         onSaveCompleted: isFromScanReceipt ? {
                             // Flusso fotocamera continuo: riapri la camera dopo il salvataggio
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -123,6 +126,22 @@ struct ContentView: View {
                             await processReceiptWithOCR(image: capturedImage)
                         }
                     }
+                }
+                .sheet(isPresented: $showingInvoicePicker) {
+                    InvoicePDFPickerView(
+                        onPDFSelected: { pdfURL in
+                            showingInvoicePicker = false
+                            isProcessingReceipt = true
+                            processingMessage = "Analyzing invoice..."
+
+                            Task {
+                                await processInvoiceWithOCR(pdfURL: pdfURL)
+                            }
+                        },
+                        onCancel: {
+                            showingInvoicePicker = false
+                        }
+                    )
                 }
                 .overlay {
                     if isProcessingReceipt {
@@ -151,13 +170,24 @@ struct ContentView: View {
                     Button("Manual Entry") {
                         isFromScanReceipt = false
                         resetPrefilledData()
+                        currentEntryType = .manual
                         showingAddExpense = true
                     }
 
                     Button("Scan Receipt") {
                         if let apiKey = settings.first?.claudeAPIKey, !apiKey.isEmpty {
                             isFromScanReceipt = true
+                            currentEntryType = .receipt
                             showingCameraReceipt = true
+                        } else {
+                            showingAPIKeyMissingAlert = true
+                        }
+                    }
+
+                    Button("Upload Invoice") {
+                        if let apiKey = settings.first?.claudeAPIKey, !apiKey.isEmpty {
+                            currentEntryType = .invoice
+                            showingInvoicePicker = true
                         } else {
                             showingAPIKeyMissingAlert = true
                         }
@@ -359,6 +389,46 @@ struct ContentView: View {
                 showingAddExpense = true
             }
         }
+    }
+
+    private func processInvoiceWithOCR(pdfURL: URL) async {
+        guard let claudeAPIKey = settings.first?.claudeAPIKey, !claudeAPIKey.isEmpty else {
+            await MainActor.run {
+                isProcessingReceipt = false
+                ocrErrorMessage = "Claude API key not configured. Please add your API key in Settings."
+                showingOCRFailureAlert = true
+            }
+            return
+        }
+
+        let invoiceData = await ReceiptOCRService.shared.processInvoice(
+            pdfURL: pdfURL,
+            claudeAPIKey: claudeAPIKey,
+            learnedKeywords: learnedKeywords
+        )
+
+        var matchedCategory: Category?
+        if let categoryName = invoiceData.categoryName {
+            matchedCategory = categories.first { $0.name == categoryName }
+        }
+
+        await MainActor.run {
+            isProcessingReceipt = false
+
+            if invoiceData.amount == nil {
+                ocrErrorMessage = "Could not extract amount from invoice. The PDF may be corrupted or the format is not supported. Try again or enter manually."
+                showingOCRFailureAlert = true
+            } else {
+                prefilledAmount = invoiceData.amount
+                prefilledCategory = matchedCategory
+                prefilledDate = invoiceData.date
+                capturedMerchantName = invoiceData.merchantName
+                showingAddExpense = true
+            }
+        }
+
+        // Cleanup temp file
+        try? FileManager.default.removeItem(at: pdfURL)
     }
 }
 
