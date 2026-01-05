@@ -47,11 +47,11 @@ struct AddExpenseView: View {
                     // Amount Section
                     amountSection
 
+                    // Date Section (sotto Amount)
+                    dateSection
+
                     // Category Section
                     categorySection
-
-                    // Date Section
-                    dateSection
 
                     // Notes Section
                     notesSection
@@ -72,13 +72,23 @@ struct AddExpenseView: View {
                         dismiss()
                     }
                 }
-
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Save") {
-                        saveExpense()
-                    }
-                    .fontWeight(.semibold)
+            }
+            .safeAreaInset(edge: .bottom) {
+                // Bottone Save giallo fisso in basso
+                Button {
+                    saveExpense()
+                } label: {
+                    Text("Save Expense")
+                        .font(.headline)
+                        .foregroundColor(.black)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(Color.yellow)
+                        .cornerRadius(12)
                 }
+                .padding(.horizontal)
+                .padding(.bottom, 8)
+                .background(Color(.systemGroupedBackground))
             }
             .sheet(isPresented: $showingDatePicker) {
                 NavigationStack {
@@ -203,8 +213,20 @@ struct AddExpenseView: View {
                 .font(.title3)
                 .fontWeight(.semibold)
 
-            // Quick buttons + calendario
+            // Quick buttons + calendario (più recente a destra)
             HStack(spacing: 12) {
+                // Calendario (a sinistra)
+                Button {
+                    showingDatePicker = true
+                } label: {
+                    Image(systemName: "calendar")
+                        .font(.title3)
+                        .foregroundStyle(.blue)
+                        .frame(width: 60, height: 44)
+                        .background(Color(.tertiarySystemGroupedBackground))
+                        .cornerRadius(8)
+                }
+
                 // 2 giorni fa
                 QuickDateButton(
                     date: Calendar.current.date(byAdding: .day, value: -2, to: Date()) ?? Date(),
@@ -221,24 +243,12 @@ struct AddExpenseView: View {
                     date = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
                 }
 
-                // Oggi
+                // Oggi (più recente, a destra)
                 QuickDateButton(
                     date: Date(),
                     isSelected: isSameDay(date, Date())
                 ) {
                     date = Date()
-                }
-
-                // Calendario
-                Button {
-                    showingDatePicker = true
-                } label: {
-                    Image(systemName: "calendar")
-                        .font(.title3)
-                        .foregroundStyle(.blue)
-                        .frame(width: 60, height: 44)
-                        .background(Color(.tertiarySystemGroupedBackground))
-                        .cornerRadius(8)
                 }
             }
         }
