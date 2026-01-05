@@ -42,28 +42,34 @@ struct AddExpenseView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 24) {
-                    // Amount Section
-                    amountSection
+            ZStack {
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // Amount Section
+                        amountSection
 
-                    // Date Section (sotto Amount)
-                    dateSection
+                        // Date Section (sotto Amount)
+                        dateSection
 
-                    // Category Section
-                    categorySection
+                        // Category Section
+                        categorySection
 
-                    // Notes Section
-                    notesSection
+                        // Notes Section
+                        notesSection
 
-                    // Badge duplicato (se rilevato)
-                    if isPossibleDuplicate {
-                        duplicateBadge
+                        // Spazio per il bottone fisso in basso
+                        Spacer().frame(height: 100)
                     }
+                    .padding()
                 }
-                .padding()
+                .background(Color(.systemGroupedBackground))
+
+                // Save Button fisso in basso con eventuale badge duplicato
+                VStack {
+                    Spacer()
+                    saveButtonSection
+                }
             }
-            .background(Color(.systemGroupedBackground))
             .navigationTitle("New Expense")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -72,23 +78,6 @@ struct AddExpenseView: View {
                         dismiss()
                     }
                 }
-            }
-            .safeAreaInset(edge: .bottom) {
-                // Bottone Save giallo fisso in basso
-                Button {
-                    saveExpense()
-                } label: {
-                    Text("Save Expense")
-                        .font(.headline)
-                        .foregroundColor(.black)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(Color.yellow)
-                        .cornerRadius(12)
-                }
-                .padding(.horizontal)
-                .padding(.bottom, 8)
-                .background(Color(.systemGroupedBackground))
             }
             .sheet(isPresented: $showingDatePicker) {
                 NavigationStack {
@@ -276,6 +265,36 @@ struct AddExpenseView: View {
         .padding()
         .background(Color(.secondarySystemGroupedBackground))
         .cornerRadius(12)
+    }
+
+    /// Sezione Save Button con eventuale badge duplicato
+    private var saveButtonSection: some View {
+        VStack(spacing: 8) {
+            // Badge duplicato (se rilevato)
+            if isPossibleDuplicate {
+                duplicateBadge
+            }
+
+            // Bottone Save giallo
+            Button {
+                saveExpense()
+            } label: {
+                Text("Save Expense")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.black)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(Color.yellow)
+                    .cornerRadius(12)
+            }
+            .padding(.horizontal)
+        }
+        .padding(.bottom, 20)
+        .background(
+            Color(.systemGroupedBackground)
+                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: -4)
+        )
     }
 
     /// Badge per possibile duplicato
