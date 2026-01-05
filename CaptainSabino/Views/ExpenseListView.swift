@@ -360,6 +360,9 @@ struct ExpenseRowView: View {
             
             Spacer()
 
+            // Entry Type Badge
+            EntryTypeBadge(entryType: expense.entryType)
+
             // Amount
             Text(expense.formattedAmount)
                 .font(.body)
@@ -367,6 +370,20 @@ struct ExpenseRowView: View {
                 .foregroundStyle(.primary)
         }
         .padding(.vertical, 4)
+    }
+}
+
+// MARK: - Entry Type Badge
+
+struct EntryTypeBadge: View {
+    let entryType: EntryType
+
+    var body: some View {
+        Text(entryType.displayLetter)
+            .font(.caption2)
+            .fontWeight(.bold)
+            .foregroundStyle(entryType.color)
+            .frame(width: 20, height: 20)
     }
 }
 

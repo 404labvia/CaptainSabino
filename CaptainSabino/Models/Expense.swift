@@ -7,34 +7,75 @@
 
 import Foundation
 import SwiftData
+import SwiftUI
+
+// MARK: - Entry Type Enum
+
+/// Tipo di inserimento della spesa
+enum EntryType: String, Codable {
+    case manual = "C"    // Cash/Manual entry
+    case receipt = "R"   // Receipt scan
+    case invoice = "I"   // Invoice upload
+
+    /// Colore associato al tipo di inserimento
+    var color: Color {
+        switch self {
+        case .manual: return .orange
+        case .receipt: return .green
+        case .invoice: return .purple
+        }
+    }
+
+    /// Lettera da visualizzare nel badge
+    var displayLetter: String { rawValue }
+
+    /// Descrizione completa per la legenda
+    var description: String {
+        switch self {
+        case .manual: return "Cash (Manual)"
+        case .receipt: return "Receipt"
+        case .invoice: return "Invoice"
+        }
+    }
+}
 
 @Model
 final class Expense {
     // MARK: - Properties
-    
+
     /// ID univoco della spesa (generato automaticamente)
     var id: UUID
-    
+
     /// Importo della spesa in Euro
     var amount: Double
-    
+
     /// Categoria della spesa (relazione con Category)
     var category: Category?
-    
+
     /// Data della spesa
     var date: Date
-    
+
     /// Note opzionali per la spesa (es: "Rifornimento Porto di Monaco")
     var notes: String
 
     /// Percorso relativo dell'immagine dello scontrino (se presente)
     var receiptImagePath: String?
 
+    /// Tipo di inserimento della spesa (Manual, Receipt, Invoice)
+    /// Default "R" per retrocompatibilità con dati esistenti (erano da scontrino)
+    var entryTypeRaw: String = "R"
+
+    /// Entry type come enum (computed property per SwiftData compatibility)
+    var entryType: EntryType {
+        get { EntryType(rawValue: entryTypeRaw) ?? .manual }
+        set { entryTypeRaw = newValue.rawValue }
+    }
+
     /// Data di creazione del record
     var createdAt: Date
     
     // MARK: - Initializer
-    
+
     /// Inizializzatore per creare una nuova spesa
     /// - Parameters:
     ///   - amount: Importo in Euro
@@ -42,12 +83,14 @@ final class Expense {
     ///   - date: Data della spesa (default: oggi)
     ///   - notes: Note opzionali (default: stringa vuota)
     ///   - receiptImagePath: Percorso immagine scontrino (default: nil)
+    ///   - entryType: Tipo di inserimento (default: manual)
     init(
         amount: Double,
         category: Category?,
         date: Date = Date(),
         notes: String = "",
-        receiptImagePath: String? = nil
+        receiptImagePath: String? = nil,
+        entryType: EntryType = .manual
     ) {
         self.id = UUID()
         self.amount = amount
@@ -55,6 +98,7 @@ final class Expense {
         self.date = date
         self.notes = notes
         self.receiptImagePath = receiptImagePath
+        self.entryTypeRaw = entryType.rawValue
         self.createdAt = Date()
     }
     

@@ -243,6 +243,16 @@ class PDFService {
             y += 16
         }
 
+        // Entry Type Legend
+        y += 8
+        let legendFont = UIFont.systemFont(ofSize: 9)
+        let legendAttributes: [NSAttributedString.Key: Any] = [
+            .font: legendFont,
+            .foregroundColor: UIColor.gray
+        ]
+        "Entry Types: C = Cash/Manual, R = Receipt, I = Invoice".draw(at: CGPoint(x: 40, y: y), withAttributes: legendAttributes)
+        y += 14
+
         return y
     }
 
@@ -269,9 +279,10 @@ class PDFService {
         y += 25
 
         // Column widths
-        let dayWidth: CGFloat = tableWidth * 0.15
-        let categoryWidth: CGFloat = tableWidth * 0.55
-        _ = tableWidth * 0.30 // amountWidth per completezza layout
+        let dayWidth: CGFloat = tableWidth * 0.12
+        let categoryWidth: CGFloat = tableWidth * 0.48
+        let typeWidth: CGFloat = tableWidth * 0.12
+        let amountWidth: CGFloat = tableWidth * 0.28
 
         // Header
         let headerFont = UIFont.boldSystemFont(ofSize: 10)
@@ -286,7 +297,8 @@ class PDFService {
 
         "Day".draw(at: CGPoint(x: leftMargin + 8, y: y + 7), withAttributes: headerAttributes)
         "Category".draw(at: CGPoint(x: leftMargin + dayWidth + 8, y: y + 7), withAttributes: headerAttributes)
-        "Amount".draw(at: CGPoint(x: leftMargin + dayWidth + categoryWidth + 8, y: y + 7), withAttributes: headerAttributes)
+        "Type".draw(at: CGPoint(x: leftMargin + dayWidth + categoryWidth + 8, y: y + 7), withAttributes: headerAttributes)
+        "Amount".draw(at: CGPoint(x: leftMargin + dayWidth + categoryWidth + typeWidth + 8, y: y + 7), withAttributes: headerAttributes)
 
         y += 25
 
@@ -350,14 +362,17 @@ class PDFService {
                     dayText.draw(at: CGPoint(x: leftMargin + 8, y: y + 5), withAttributes: cellAttributes)
                 }
 
-                // Category and amount
-                "\(categoryName) \(formatCurrency(categoryTotal))".draw(at: CGPoint(x: leftMargin + dayWidth + 8, y: y + 5), withAttributes: cellAttributes)
+                // Category
+                categoryName.draw(at: CGPoint(x: leftMargin + dayWidth + 8, y: y + 5), withAttributes: cellAttributes)
 
-                // Day total (only on first row)
-                if isFirstRowForDay {
-                    formatCurrency(dayTotal).draw(at: CGPoint(x: leftMargin + dayWidth + categoryWidth + 8, y: y + 5), withAttributes: cellAttributes)
-                    isFirstRowForDay = false
-                }
+                // Entry types for this category (C/R/I)
+                let entryTypes = Set(categoryExpenses.map { $0.entryType.displayLetter }).sorted().joined(separator: "/")
+                entryTypes.draw(at: CGPoint(x: leftMargin + dayWidth + categoryWidth + 8, y: y + 5), withAttributes: cellAttributes)
+
+                // Category total
+                formatCurrency(categoryTotal).draw(at: CGPoint(x: leftMargin + dayWidth + categoryWidth + typeWidth + 8, y: y + 5), withAttributes: cellAttributes)
+
+                isFirstRowForDay = false
 
                 y += 20
                 isAlternate.toggle()

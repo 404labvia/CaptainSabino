@@ -25,6 +25,9 @@ struct AddExpenseView: View {
     var receiptImage: UIImage?
     var merchantName: String?
 
+    // Tipo di inserimento (manual, receipt, invoice)
+    var entryType: EntryType = .manual
+
     // Callback per flusso fotocamera continuo (chiamato dopo salvataggio)
     var onSaveCompleted: (() -> Void)?
 
@@ -383,7 +386,8 @@ struct AddExpenseView: View {
             amount: amountValue,
             category: selectedCategory,
             date: date,
-            notes: notes.trimmingCharacters(in: .whitespacesAndNewlines)
+            notes: notes.trimmingCharacters(in: .whitespacesAndNewlines),
+            entryType: entryType
         )
 
         modelContext.insert(newExpense)
