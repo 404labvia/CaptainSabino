@@ -157,9 +157,7 @@ struct ReportListView: View {
                         report: report,
                         expenseCount: expenseCount(for: report.month),
                         totalAmount: totalAmount(for: report.month),
-                        onView: { viewReport(report) },
-                        onShare: { shareReport(report) },
-                        onRegenerate: { regenerateReport(report) },
+                        onCardTap: { viewReport(report) },
                         onDelete: {
                             reportToDelete = report
                             showingDeleteAlert = true
@@ -340,7 +338,7 @@ struct GenerateReportSheet: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
 
-                    Text(String(format: "€%.2f", totalAmount))
+                    Text(totalAmount.formattedCurrency)
                         .font(.title2)
                         .fontWeight(.semibold)
                 }
@@ -431,72 +429,56 @@ struct ReportCard: View {
     let report: ReportInfo
     let expenseCount: Int
     let totalAmount: Double
-    let onView: () -> Void
-    let onShare: () -> Void
-    let onRegenerate: () -> Void
+    let onCardTap: () -> Void
     let onDelete: () -> Void
 
     var body: some View {
-        HStack(spacing: 16) {
-            // PDF Icon
-            ZStack {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.red.opacity(0.1))
-                    .frame(width: 50, height: 60)
+        Button {
+            onCardTap()
+        } label: {
+            HStack(spacing: 16) {
+                // PDF Icon
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.red.opacity(0.1))
+                        .frame(width: 50, height: 60)
 
-                Image(systemName: "doc.text.fill")
-                    .font(.title2)
-                    .foregroundStyle(.red)
+                    Image(systemName: "doc.text.fill")
+                        .font(.title2)
+                        .foregroundStyle(.red)
+                }
+
+                // Info
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(report.formattedMonth)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+
+                    Text("\(expenseCount) expenses • \(totalAmount.formattedCurrency)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                // Actions Menu (solo Delete)
+                Menu {
+                    Button(role: .destructive) {
+                        onDelete()
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.title2)
+                        .foregroundStyle(.secondary)
+                }
             }
-
-            // Info
-            VStack(alignment: .leading, spacing: 4) {
-                Text(report.formattedMonth)
-                    .font(.headline)
-
-                Text("\(expenseCount) expenses • \(String(format: "€%.2f", totalAmount))")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            // Actions Menu
-            Menu {
-                Button {
-                    onView()
-                } label: {
-                    Label("View", systemImage: "eye")
-                }
-
-                Button {
-                    onShare()
-                } label: {
-                    Label("Share", systemImage: "square.and.arrow.up")
-                }
-
-                Button {
-                    onRegenerate()
-                } label: {
-                    Label("Regenerate", systemImage: "arrow.clockwise")
-                }
-
-                Divider()
-
-                Button(role: .destructive) {
-                    onDelete()
-                } label: {
-                    Label("Delete", systemImage: "trash")
-                }
-            } label: {
-                Image(systemName: "ellipsis.circle")
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
-            }
+            .padding()
+            .background(Color(.secondarySystemGroupedBackground))
+            .cornerRadius(12)
         }
-        .padding()
-        .background(Color(.secondarySystemGroupedBackground))
-        .cornerRadius(12)
+        .buttonStyle(.plain)
     }
 }
 

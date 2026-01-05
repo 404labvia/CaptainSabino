@@ -65,9 +65,7 @@ struct SettingsView: View {
         Section("Yacht Information") {
             if let settings = yachtSettings {
                 LabeledContent("Yacht", value: settings.yachtName)
-                LabeledContent("Owner Email", value: settings.ownerEmail)
                 LabeledContent("Captain", value: settings.captainName)
-                LabeledContent("Captain Email", value: settings.captainEmail)
 
                 Button {
                     showingEditSettings = true
@@ -156,9 +154,7 @@ struct EditSettingsView: View {
     @Query private var settings: [YachtSettings]
 
     @State private var yachtName = ""
-    @State private var ownerEmail = ""
     @State private var captainName = ""
-    @State private var captainEmail = ""
     @State private var showingAlert = false
     @State private var alertMessage = ""
 
@@ -167,13 +163,7 @@ struct EditSettingsView: View {
             Form {
                 Section("Yacht Information") {
                     TextField("Yacht", text: $yachtName)
-                    TextField("Owner Email", text: $ownerEmail)
-                        .keyboardType(.emailAddress)
-                        .autocapitalization(.none)
                     TextField("Captain Name", text: $captainName)
-                    TextField("Captain Email", text: $captainEmail)
-                        .keyboardType(.emailAddress)
-                        .autocapitalization(.none)
                 }
             }
             .navigationTitle("Edit Settings")
@@ -206,9 +196,7 @@ struct EditSettingsView: View {
     private func loadCurrentSettings() {
         if let current = settings.first {
             yachtName = current.yachtName
-            ownerEmail = current.ownerEmail
             captainName = current.captainName
-            captainEmail = current.captainEmail
         }
     }
 
@@ -218,21 +206,14 @@ struct EditSettingsView: View {
             return
         }
 
-        guard !ownerEmail.isEmpty, ownerEmail.contains("@") else {
-            showAlert("Please enter a valid owner email")
-            return
-        }
-
-        guard !captainEmail.isEmpty, captainEmail.contains("@") else {
-            showAlert("Please enter a valid captain email")
+        guard !captainName.isEmpty else {
+            showAlert("Please enter captain name")
             return
         }
 
         if let current = settings.first {
             current.yachtName = yachtName
-            current.ownerEmail = ownerEmail
             current.captainName = captainName
-            current.captainEmail = captainEmail
             current.touch()
         }
 

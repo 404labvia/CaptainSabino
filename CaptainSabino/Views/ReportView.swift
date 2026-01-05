@@ -193,7 +193,7 @@ struct ReportView: View {
                     Text("Total Expenses")
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Text(String(format: "€%.2f", totalAmount))
+                    Text(totalAmount.formattedCurrency)
                         .font(.title3)
                         .fontWeight(.bold)
                 }
@@ -222,7 +222,7 @@ struct ReportView: View {
                     HStack {
                         Text(item.category)
                         Spacer()
-                        Text(String(format: "€%.2f", item.total))
+                        Text(item.total.formattedCurrency)
                             .fontWeight(.medium)
                     }
                     .font(.subheadline)

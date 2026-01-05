@@ -179,8 +179,8 @@ struct DashboardView: View {
 
                 // Total in the center
                 VStack(spacing: 4) {
-                    Text(String(format: "€%.2f", totalAmount))
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                    Text(totalAmount.formattedCurrency)
+                        .font(.system(size: 26, weight: .bold, design: .rounded))
                         .foregroundStyle(.primary)
 
                     Text("\(filteredExpenses.count) items")
@@ -221,16 +221,16 @@ struct DashboardView: View {
                     Spacer()
 
                     // Percentage and Amount
-                    HStack(spacing: 8) {
+                    HStack(spacing: 6) {
                         Text(String(format: "%.0f%%", (item.total / totalAmount) * 100))
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
-                            .frame(minWidth: 40, alignment: .trailing)
+                            .frame(minWidth: 36, alignment: .trailing)
 
-                        Text(String(format: "€%.2f", item.total))
+                        Text(item.total.formattedCurrency)
                             .font(.body)
                             .fontWeight(.semibold)
-                            .frame(minWidth: 80, alignment: .trailing)
+                            .frame(minWidth: 100, alignment: .trailing)
                     }
                 }
                 .padding(.vertical, 4)

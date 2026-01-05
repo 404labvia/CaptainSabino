@@ -58,7 +58,7 @@ class ReceiptOCRService {
     // Valid categories (must match exactly)
     private let validCategories: Set<String> = [
         "Food", "Supermarket", "Fuel", "Pharmacy", "Chandlery",
-        "Water Test", "Welder", "Tender Fuel", "Fly", "Crew"
+        "Parking", "Tender Fuel", "Fly", "Crew"
     ]
 
     // MARK: - Public Methods
@@ -231,11 +231,8 @@ class ReceiptOCRService {
         2. DATE: Find the receipt date
            - Usually printed at the top or bottom of the receipt
            - Return in YYYY-MM-DD format (e.g., 2024-12-23)
-           - DATE FORMAT DETECTION: Determine if European (DD/MM/YYYY) or American (MM/DD/YYYY):
-             * If day value > 12, it's definitely European (e.g., 25/11/2024 = Nov 25)
-             * If currency is € (Euro) or language is Italian/French/German/Spanish → European format
-             * If currency is $ (USD) or language is English-only with US context → American format
-             * When ambiguous (both values ≤ 12), use context clues from merchant/language
+           - IMPORTANT: All dates are in EUROPEAN format DD/MM/YYYY (day/month/year)
+           - Example: 25/01/2024 means January 25, 2024
 
         3. MERCHANT: Extract the store/business name
            - Usually the first 1-2 lines of the receipt
@@ -248,8 +245,7 @@ class ReceiptOCRService {
            - "Fuel" → Gas stations (ENI, Q8, SHELL, IP, etc.)
            - "Pharmacy" → Pharmacies, drugstores
            - "Chandlery" → Marine/nautical supplies, boat equipment
-           - "Water Test" → Water analysis laboratories
-           - "Welder" → Welding services, metalwork
+           - "Parking" → Parking lots, parking meters, garages
            - "Tender Fuel" → Fuel specifically for dinghies/tenders
            - "Fly" → Airports, airlines, flights
            - "Crew" → Salaries, payroll, crew expenses
@@ -277,7 +273,7 @@ class ReceiptOCRService {
             print("📝 Claude response: \(text)")
 
             // Pulisci la risposta da eventuali backtick markdown
-            var cleanedText = text
+            let cleanedText = text
                 .replacingOccurrences(of: "```json", with: "")
                 .replacingOccurrences(of: "```JSON", with: "")
                 .replacingOccurrences(of: "```", with: "")

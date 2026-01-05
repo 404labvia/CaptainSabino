@@ -30,6 +30,7 @@ struct ContentView: View {
     @State private var showingOCRFailureAlert = false
     @State private var showingAPIKeyMissingAlert = false
     @State private var ocrErrorMessage = ""
+    @State private var isFromScanReceipt = false  // Per flusso fotocamera continuo
 
     // MARK: - Body
 
@@ -103,7 +104,14 @@ struct ContentView: View {
                         prefilledCategory: prefilledCategory,
                         prefilledDate: prefilledDate,
                         receiptImage: capturedReceiptImage,
-                        merchantName: capturedMerchantName
+                        merchantName: capturedMerchantName,
+                        onSaveCompleted: isFromScanReceipt ? {
+                            // Flusso fotocamera continuo: riapri la camera dopo il salvataggio
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                resetPrefilledData()
+                                showingCameraReceipt = true
+                            }
+                        } : nil
                     )
                 }
                 .sheet(isPresented: $showingCameraReceipt) {
@@ -141,12 +149,14 @@ struct ContentView: View {
                 }
                 .confirmationDialog("Add New Expense", isPresented: $showingAddMenu) {
                     Button("Manual Entry") {
+                        isFromScanReceipt = false
                         resetPrefilledData()
                         showingAddExpense = true
                     }
 
                     Button("Scan Receipt") {
                         if let apiKey = settings.first?.claudeAPIKey, !apiKey.isEmpty {
+                            isFromScanReceipt = true
                             showingCameraReceipt = true
                         } else {
                             showingAPIKeyMissingAlert = true
@@ -162,6 +172,7 @@ struct ContentView: View {
                         selectedTab = 4
                     }
                     Button("Manual Entry") {
+                        isFromScanReceipt = false
                         resetPrefilledData()
                         showingAddExpense = true
                     }
@@ -174,6 +185,7 @@ struct ContentView: View {
                         showingCameraReceipt = true
                     }
                     Button("Manual Entry") {
+                        isFromScanReceipt = false
                         resetPrefilledData()
                         showingAddExpense = true
                     }
@@ -242,7 +254,7 @@ struct ContentView: View {
     }
 
     private func updateCategoryColorsIfNeeded() {
-        let hasUpdatedCategories = UserDefaults.standard.bool(forKey: "hasUpdatedCategories_v5")
+        let hasUpdatedCategories = UserDefaults.standard.bool(forKey: "hasUpdatedCategories_v6")
         guard !hasUpdatedCategories else { return }
 
         let colorMapping: [String: String] = [
@@ -251,8 +263,7 @@ struct ContentView: View {
             "Pharmacy": "#00897B",
             "Crew": "#D81B60",
             "Chandlery": "#FB8C00",
-            "Water Test": "#03A9F4",
-            "Welder": "#FF6F00",
+            "Parking": "#5E35B1",
             "Tender Fuel": "#607D8B",
             "Fly": "#00BCD4",
             "Supermarket": "#8BC34A"
@@ -264,7 +275,8 @@ struct ContentView: View {
             }
         }
 
-        let categoriesToRemove = ["Supplies", "Maintenance", "Mooring"]
+        // Rimuove categorie obsolete (Water Test, Welder e vecchie)
+        let categoriesToRemove = ["Supplies", "Maintenance", "Mooring", "Water Test", "Welder"]
         for category in categories where category.isPredefined {
             if categoriesToRemove.contains(category.name) {
                 if let expenses = category.expenses, !expenses.isEmpty {
@@ -275,11 +287,11 @@ struct ContentView: View {
             }
         }
 
+        // Aggiunge nuove categorie se non esistono
         let existingCategoryNames = Set(categories.map { $0.name })
         let newCategories: [(name: String, icon: String, color: String)] = [
             ("Chandlery", "wrench.and.screwdriver", "#FB8C00"),
-            ("Water Test", "drop.triangle", "#03A9F4"),
-            ("Welder", "flame", "#FF6F00"),
+            ("Parking", "car.fill", "#5E35B1"),
             ("Tender Fuel", "fuelpump.fill", "#607D8B"),
             ("Fly", "airplane", "#00BCD4"),
             ("Supermarket", "bag", "#8BC34A")
@@ -293,7 +305,7 @@ struct ContentView: View {
         }
 
         try? modelContext.save()
-        UserDefaults.standard.set(true, forKey: "hasUpdatedCategories_v5")
+        UserDefaults.standard.set(true, forKey: "hasUpdatedCategories_v6")
     }
 
     private func requestNotificationPermissions() {
