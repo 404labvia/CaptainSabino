@@ -19,24 +19,24 @@ CaptainSabino è un'applicazione SwiftUI con SwiftData per tracciare le spese de
 ```
 CaptainSabino/
 ├── Models/
-│   ├── Expense.swift        # Modello spesa principale
+│   ├── Expense.swift        # Modello spesa principale + formattedCurrency extension
 │   ├── Category.swift       # Categorie spese (predefinite + custom)
 │   ├── YachtSettings.swift  # Impostazioni yacht e API key
 │   ├── LearnedKeyword.swift # Keywords apprese per OCR
 │   └── Reminder.swift       # Promemoria (non attivo in UI)
 ├── Views/
-│   ├── ContentView.swift    # Tab bar principale
-│   ├── DashboardView.swift  # Dashboard con grafici
+│   ├── ContentView.swift    # Tab bar principale + flusso fotocamera continuo
+│   ├── DashboardView.swift  # Dashboard con grafici a torta
 │   ├── ExpenseListView.swift # Lista spese
-│   ├── AddExpenseView.swift  # Aggiunta spesa (design moderno)
+│   ├── AddExpenseView.swift  # Aggiunta spesa (design moderno con ZStack)
 │   ├── EditExpenseView.swift # Modifica spesa
 │   ├── ReportListView.swift  # Lista report PDF salvati
-│   ├── SettingsView.swift    # Impostazioni
-│   ├── OnboardingView.swift  # Setup iniziale
+│   ├── SettingsView.swift    # Impostazioni (solo yacht name e API key)
+│   ├── OnboardingView.swift  # Setup iniziale (semplificato)
 │   └── CameraReceiptView.swift # Scansione scontrini
 ├── Services/
-│   ├── ReceiptOCRService.swift # OCR con Claude Vision
-│   ├── PDFService.swift        # Generazione PDF report
+│   ├── ReceiptOCRService.swift # OCR con Claude Vision (solo formato EU)
+│   ├── PDFService.swift        # Generazione PDF report (formato italiano)
 │   ├── NotificationService.swift # Notifiche locali
 │   └── EmailService.swift      # Invio email
 └── CaptainSabinoApp.swift      # Entry point
@@ -69,13 +69,31 @@ CaptainSabino/
 
 ### OCR Scontrini
 - Usa Claude Vision API per estrarre: importo, data, categoria, merchant
-- Supporta formati data europei (DD/MM/YYYY) e americani (MM/DD/YYYY)
+- **Solo formato data europeo** (DD/MM/YYYY)
 - Sistema di learned keywords per migliorare riconoscimento categoria
+- **Flusso fotocamera continuo**: dopo salvataggio da scan, ritorna automaticamente alla fotocamera
+
+### Categorie Spese
+Categorie predefinite: Fuel, Food, Maintenance, Crew, Supplies, Transport, Mooring, Insurance, Communication, **Parking**, Other
+- Rimossi: Welder, Water Test
+
+### Formato Valuta
+- **Formato italiano ovunque**: € 1.234,56 (punto migliaia, virgola decimali)
+- Extension `Double.formattedCurrency` in Expense.swift
+- Applicato in: Dashboard, Liste spese, Report PDF
 
 ### Report PDF
 - Salvati in `Documents/Reports/`
 - Includono grafico a torta per categorie
-- Funzioni: View (QuickLook), Share, Regenerate, Delete
+- **Click su card apre PDF** (QuickLook)
+- **Menu opzioni**: solo Delete
+- Ordinati per data più recente
+
+### Rilevamento Duplicati
+- Controllo automatico: stesso importo + stessa data
+- **Badge rosso** "Possible Duplicate" sopra il bottone Save
+- Non bloccante: permette comunque il salvataggio
+- Attivo sia per input manuale che OCR
 
 ### Navigazione
 - Tab 0: Dashboard (grafici mensili)
@@ -88,13 +106,34 @@ CaptainSabino/
 
 - **Claude API Key**: Salvata in YachtSettings, MAI esporre in log o codice
 - Non committare file con credenziali
+- Rimossi campi Owner Email e Captain Email
 
 ## Design UI
 
+### Generale
 - Stile moderno con cards e ombre
-- Colori: Blu per azioni primarie, Verde per Report
+- Colori: Blu per azioni primarie, Verde per Report, Giallo per Save
 - Corner radius: 12-15pt per cards
 - Usare `Color(.secondarySystemBackground)` per sfondi cards
+
+### AddExpenseView (Layout ZStack)
+```swift
+ZStack {
+    ScrollView { /* contenuto */ }
+    VStack {
+        Spacer()
+        saveButtonSection  // Badge duplicato + bottone giallo
+    }
+}
+```
+- **Ordine sezioni**: Amount → Date → Category → Notes
+- **Quick date buttons**: Calendario | 2gg fa | Ieri | Oggi (più recente a destra)
+- **Save button giallo** fisso in basso con shadow
+- **DatePicker** con bottoni OK/Cancel
+
+### Dashboard
+- Grafico a torta con font size 26 per totale centrale
+- Lista categorie: colonna importi minWidth 100, percentuale minWidth 36
 
 ## Comandi Utili
 
@@ -111,3 +150,5 @@ xcodebuild clean -scheme CaptainSabino
 - I report generati da Dashboard/Expenses/Reports usano lo stesso `GenerateReportSheet`
 - `ToastView` per feedback utente su azioni completate
 - QuickLook per visualizzazione PDF nativi iOS
+- ContentView gestisce `onSaveCompleted` callback per flusso fotocamera continuo
+- PDFService usa `formatCurrency()` per formato italiano nei report
