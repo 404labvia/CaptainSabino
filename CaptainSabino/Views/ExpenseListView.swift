@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import QuickLook
 
 struct ExpenseListView: View {
     // MARK: - Properties
@@ -28,7 +29,8 @@ struct ExpenseListView: View {
     @State private var alertMessage = ""
     @State private var showingToast = false
     @State private var toastMessage = ""
-    
+    @State private var quickLookURL: URL?
+
     // MARK: - Body
     
     var body: some View {
@@ -91,6 +93,7 @@ struct ExpenseListView: View {
                         .padding(.bottom, 20)
                 }
             }
+            .quickLookPreview($quickLookURL)
         }
     }
     
@@ -293,13 +296,16 @@ struct ExpenseListView: View {
         }
 
         do {
-            let _ = try PDFService.shared.generateExpenseReport(
+            let reportURL = try PDFService.shared.generateExpenseReport(
                 expenses: monthExpenses,
                 month: reportSelectedDate,
                 settings: yachtSettings
             )
             showingGenerateSheet = false
-            showToast("Report generated successfully")
+            // Apri direttamente il PDF con QuickLook
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                quickLookURL = reportURL
+            }
         } catch {
             alertMessage = "Failed to generate report: \(error.localizedDescription)"
             showingAlert = true

@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 import Charts
+import QuickLook
 
 struct DashboardView: View {
     // MARK: - Properties
@@ -18,6 +19,7 @@ struct DashboardView: View {
 
     @State private var selectedMonth = Date()
     @State private var showingMonthPicker = false
+    @State private var showingAddExpense = false
     @State private var showingGenerateSheet = false
     @State private var reportSelectedMonth = Calendar.current.component(.month, from: Date())
     @State private var reportSelectedYear = Calendar.current.component(.year, from: Date())
@@ -26,6 +28,7 @@ struct DashboardView: View {
     @State private var alertMessage = ""
     @State private var showingToast = false
     @State private var toastMessage = ""
+    @State private var quickLookURL: URL?
     
     // MARK: - Body
     
@@ -50,6 +53,9 @@ struct DashboardView: View {
                 .padding()
             }
             .navigationBarHidden(true)
+            .sheet(isPresented: $showingAddExpense) {
+                AddExpenseView()
+            }
             .sheet(isPresented: $showingGenerateSheet) {
                 GenerateReportSheet(
                     selectedMonth: $reportSelectedMonth,
@@ -77,6 +83,7 @@ struct DashboardView: View {
                         .padding(.bottom, 20)
                 }
             }
+            .quickLookPreview($quickLookURL)
             .onAppear {
                 // Sync report month/year with dashboard selected month
                 let components = Calendar.current.dateComponents([.year, .month], from: selectedMonth)
@@ -245,8 +252,8 @@ struct DashboardView: View {
     private var quickActionsSection: some View {
         HStack(spacing: 12) {
             // Add Expense Button
-            NavigationLink {
-                AddExpenseView()
+            Button {
+                showingAddExpense = true
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "plus.circle.fill")
@@ -341,13 +348,16 @@ struct DashboardView: View {
         }
 
         do {
-            let _ = try PDFService.shared.generateExpenseReport(
+            let reportURL = try PDFService.shared.generateExpenseReport(
                 expenses: monthExpenses,
                 month: reportSelectedDate,
                 settings: yachtSettings
             )
             showingGenerateSheet = false
-            showToast("Report generated successfully")
+            // Apri direttamente il PDF con QuickLook
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                quickLookURL = reportURL
+            }
         } catch {
             alertMessage = "Failed to generate report: \(error.localizedDescription)"
             showingAlert = true

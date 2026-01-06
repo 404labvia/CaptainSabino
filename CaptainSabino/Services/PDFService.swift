@@ -226,32 +226,33 @@ class PDFService {
         linePath.stroke()
         y += 20
 
-        // Info Yacht
+        // Info Yacht (colonna sinistra) e Entry Type Legend (colonna destra)
         let infoFont = UIFont.systemFont(ofSize: 11)
         let infoAttributes: [NSAttributedString.Key: Any] = [
             .font: infoFont,
             .foregroundColor: UIColor.darkGray
         ]
 
-        let yachtInfo = [
-            "Yacht: \(settings.yachtName)",
-            "Captain: \(settings.captainName)"
-        ]
-
-        for info in yachtInfo {
-            info.draw(at: CGPoint(x: 40, y: y), withAttributes: infoAttributes)
-            y += 16
-        }
-
-        // Entry Type Legend
-        y += 8
         let legendFont = UIFont.systemFont(ofSize: 9)
         let legendAttributes: [NSAttributedString.Key: Any] = [
             .font: legendFont,
             .foregroundColor: UIColor.gray
         ]
-        "Entry Types: C = Cash/Manual, R = Receipt, I = Invoice".draw(at: CGPoint(x: 40, y: y), withAttributes: legendAttributes)
-        y += 14
+
+        // Colonna sinistra - Yacht info
+        let yachtY = y
+        "Yacht: \(settings.yachtName)".draw(at: CGPoint(x: 40, y: y), withAttributes: infoAttributes)
+        y += 16
+        "Captain: \(settings.captainName)".draw(at: CGPoint(x: 40, y: y), withAttributes: infoAttributes)
+
+        // Colonna destra - Entry Type Legend (allineata a destra)
+        let rightColumnX: CGFloat = rect.width - 140
+        "Entry Types:".draw(at: CGPoint(x: rightColumnX, y: yachtY), withAttributes: legendAttributes)
+        "C = Cash".draw(at: CGPoint(x: rightColumnX, y: yachtY + 12), withAttributes: legendAttributes)
+        "R = Receipt".draw(at: CGPoint(x: rightColumnX, y: yachtY + 24), withAttributes: legendAttributes)
+        "I = Invoice".draw(at: CGPoint(x: rightColumnX, y: yachtY + 36), withAttributes: legendAttributes)
+
+        y += 30
 
         return y
     }
