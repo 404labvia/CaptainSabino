@@ -135,8 +135,8 @@ struct ExpenseListView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(Color.blue)
-                .foregroundStyle(.white)
+                .background(Color.navy)
+                .foregroundStyle(Color.cream)
                 .cornerRadius(12)
                 .shadow(color: .black.opacity(0.2), radius: 6, x: 0, y: 3)
             }
@@ -154,8 +154,8 @@ struct ExpenseListView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(Color.green)
-                .foregroundStyle(.white)
+                .background(Color.forestGreen)
+                .foregroundStyle(Color.cream)
                 .cornerRadius(12)
                 .shadow(color: .black.opacity(0.2), radius: 6, x: 0, y: 3)
             }
@@ -168,7 +168,7 @@ struct ExpenseListView: View {
                     .font(.title2)
                     .frame(width: 50, height: 50)
                     .background(Color(.secondarySystemBackground))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(Color.navy)
                     .cornerRadius(12)
                     .shadow(color: .black.opacity(0.2), radius: 6, x: 0, y: 3)
             }

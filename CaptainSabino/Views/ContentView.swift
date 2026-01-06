@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 import UserNotifications
+import UIKit
 
 struct ContentView: View {
     // MARK: - Properties
@@ -89,18 +90,19 @@ struct ContentView: View {
                         } label: {
                             ZStack {
                                 Circle()
-                                    .fill(Color.blue)
+                                    .fill(Color.navy)
                                     .frame(width: 60, height: 60)
                                     .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
 
                                 Image(systemName: "plus")
                                     .font(.system(size: 28, weight: .semibold))
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(Color.cream)
                             }
                         }
                         .padding(.bottom, 30)
                     }
                 }
+                .tint(Color.gold)
                 .sheet(isPresented: $showingAddExpense) {
                     AddExpenseView(
                         prefilledAmount: prefilledAmount,
@@ -231,6 +233,8 @@ struct ContentView: View {
             requestNotificationPermissions()
             // Reset badge count when app opens
             UNUserNotificationCenter.current().setBadgeCount(0)
+            // Configure tab bar appearance
+            configureTabBarAppearance()
         }
     }
 
@@ -432,6 +436,24 @@ struct ContentView: View {
 
         // Cleanup temp file
         try? FileManager.default.removeItem(at: pdfURL)
+    }
+
+    private func configureTabBarAppearance() {
+        // Configura l'aspetto della tab bar
+        let appearance = UITabBarAppearance()
+        appearance.configureWithDefaultBackground()
+
+        // Colore icone selezionate (oro)
+        let goldColor = UIColor(Color.gold)
+        appearance.stackedLayoutAppearance.selected.iconColor = goldColor
+        appearance.stackedLayoutAppearance.selected.titleTextAttributes = [.foregroundColor: goldColor]
+
+        // Sfondo selezione con navy trasparente
+        let navyTransparent = UIColor(Color.navy.opacity(0.15))
+        appearance.stackedLayoutAppearance.selected.badgeBackgroundColor = navyTransparent
+
+        UITabBar.appearance().standardAppearance = appearance
+        UITabBar.appearance().scrollEdgeAppearance = appearance
     }
 }
 
