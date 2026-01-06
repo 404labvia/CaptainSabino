@@ -214,7 +214,7 @@ struct AddExpenseView: View {
                 } label: {
                     Image(systemName: "calendar")
                         .font(.title3)
-                        .foregroundStyle(Color.navy)
+                        .foregroundStyle(Color.royalBlue)
                         .frame(width: 60, height: 44)
                         .background(Color(.tertiarySystemGroupedBackground))
                         .cornerRadius(8)
@@ -490,17 +490,17 @@ struct QuickDateButton: View {
             Text(shortFormattedDate(date))
                 .font(.subheadline)
                 .fontWeight(isSelected ? .semibold : .regular)
-                .foregroundStyle(isSelected ? Color.navy : .primary)
+                .foregroundStyle(isSelected ? Color.royalBlue : .primary)
                 .frame(width: 60, height: 44)
                 .background(
                     isSelected
-                        ? Color.navy.opacity(0.15)
+                        ? Color.royalBlue.opacity(0.12)
                         : Color(.tertiarySystemGroupedBackground)
                 )
                 .cornerRadius(8)
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .strokeBorder(isSelected ? Color.navy : Color.clear, lineWidth: 1.5)
+                        .strokeBorder(isSelected ? Color.royalBlue : Color.clear, lineWidth: 1.5)
                 )
         }
     }

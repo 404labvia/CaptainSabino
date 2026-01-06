@@ -389,6 +389,7 @@ struct GenerateReportSheet: View {
                     Button("Cancel") {
                         onDismiss()
                     }
+                    .foregroundStyle(Color.navy)
                 }
             }
         }

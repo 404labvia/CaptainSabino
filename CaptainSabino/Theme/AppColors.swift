@@ -24,4 +24,7 @@ extension Color {
 
     /// Giallo premium - pulsante Save
     static let premiumYellow = Color(hex: "F4C430")
+
+    /// Blu scuro elegante - per date picker (più chiaro di navy)
+    static let royalBlue = Color(hex: "1E56A0")
 }
