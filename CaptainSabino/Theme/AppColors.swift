@@ -21,4 +21,7 @@ extension Color {
 
     /// Verde scuro - pulsanti Report
     static let forestGreen = Color(hex: "2D6A4F")
+
+    /// Giallo premium - pulsante Save
+    static let premiumYellow = Color(hex: "F4C430")
 }

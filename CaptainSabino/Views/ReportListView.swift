@@ -365,17 +365,17 @@ struct GenerateReportSheet: View {
                     HStack {
                         if isGenerating {
                             ProgressView()
-                                .tint(.white)
+                                .tint(Color.cream)
                         } else {
                             Image(systemName: "doc.badge.plus")
                         }
                         Text(isGenerating ? "Generating..." : "Generate PDF")
                     }
                     .font(.headline)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.cream)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(expenseCount > 0 ? Color.green : Color.gray)
+                    .background(expenseCount > 0 ? Color.forestGreen : Color.gray)
                     .cornerRadius(12)
                 }
                 .disabled(expenseCount == 0 || isGenerating)
