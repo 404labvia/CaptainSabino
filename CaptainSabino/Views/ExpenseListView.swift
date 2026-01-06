@@ -374,6 +374,7 @@ struct ExpenseRowView: View {
                 .font(.body)
                 .fontWeight(.semibold)
                 .foregroundStyle(.primary)
+                .frame(minWidth: 80, alignment: .trailing)
         }
         .padding(.vertical, 4)
     }
