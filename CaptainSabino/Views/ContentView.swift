@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import UserNotifications
 
 struct ContentView: View {
     // MARK: - Properties
@@ -228,6 +229,8 @@ struct ContentView: View {
         .onAppear {
             initializeDataIfNeeded()
             requestNotificationPermissions()
+            // Reset badge count when app opens
+            UNUserNotificationCenter.current().setBadgeCount(0)
         }
     }
 
