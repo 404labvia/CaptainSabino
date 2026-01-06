@@ -71,6 +71,7 @@ struct SettingsView: View {
                     showingEditSettings = true
                 } label: {
                     Label("Edit Information", systemImage: "pencil")
+                        .foregroundStyle(Color.navy)
                 }
             } else {
                 Text("No settings configured")
@@ -87,6 +88,7 @@ struct SettingsView: View {
                 } label: {
                     HStack {
                         Label("Claude API Key", systemImage: "key")
+                            .foregroundStyle(Color.navy)
                         Spacer()
                         if let apiKey = settings.claudeAPIKey, !apiKey.isEmpty {
                             Image(systemName: "checkmark.circle.fill")
@@ -104,7 +106,7 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             Label("Learned keywords", systemImage: "brain.head.profile")
-                                .foregroundColor(.blue)
+                                .foregroundStyle(Color.navy)
                             Spacer()
                             Text("\(learnedKeywords.count)")
                                 .foregroundColor(.secondary)
@@ -137,10 +139,12 @@ struct SettingsView: View {
 
             Link(destination: URL(string: "https://support.apple.com")!) {
                 Label("Support", systemImage: "questionmark.circle")
+                    .foregroundStyle(Color.navy)
             }
 
             Link(destination: URL(string: "https://www.apple.com/legal/privacy/")!) {
                 Label("Privacy Policy", systemImage: "hand.raised")
+                    .foregroundStyle(Color.navy)
             }
         }
     }
