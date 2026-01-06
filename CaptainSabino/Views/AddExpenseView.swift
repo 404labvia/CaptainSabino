@@ -80,6 +80,7 @@ struct AddExpenseView: View {
                     Button("Cancel") {
                         dismiss()
                     }
+                    .foregroundStyle(Color.navy)
                 }
             }
             .sheet(isPresented: $showingDatePicker) {
@@ -213,7 +214,7 @@ struct AddExpenseView: View {
                 } label: {
                     Image(systemName: "calendar")
                         .font(.title3)
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.royalBlue)
                         .frame(width: 60, height: 44)
                         .background(Color(.tertiarySystemGroupedBackground))
                         .cornerRadius(8)
@@ -278,7 +279,7 @@ struct AddExpenseView: View {
                 duplicateBadge
             }
 
-            // Bottone Save giallo
+            // Bottone Save giallo premium
             Button {
                 saveExpense()
             } label: {
@@ -288,7 +289,7 @@ struct AddExpenseView: View {
                     .foregroundStyle(.black)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .background(Color.yellow)
+                    .background(Color.premiumYellow)
                     .cornerRadius(12)
             }
             .padding(.horizontal)
@@ -489,17 +490,17 @@ struct QuickDateButton: View {
             Text(shortFormattedDate(date))
                 .font(.subheadline)
                 .fontWeight(isSelected ? .semibold : .regular)
-                .foregroundStyle(isSelected ? .blue : .primary)
+                .foregroundStyle(isSelected ? Color.royalBlue : .primary)
                 .frame(width: 60, height: 44)
                 .background(
                     isSelected
-                        ? Color.blue.opacity(0.1)
+                        ? Color.royalBlue.opacity(0.12)
                         : Color(.tertiarySystemGroupedBackground)
                 )
                 .cornerRadius(8)
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .strokeBorder(isSelected ? Color.blue : Color.clear, lineWidth: 1.5)
+                        .strokeBorder(isSelected ? Color.royalBlue : Color.clear, lineWidth: 1.5)
                 )
         }
     }

@@ -123,8 +123,8 @@ struct ReportListView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
-            .background(Color.green)
-            .foregroundStyle(.white)
+            .background(Color.forestGreen)
+            .foregroundStyle(Color.cream)
             .cornerRadius(12)
             .shadow(color: .black.opacity(0.2), radius: 6, x: 0, y: 3)
         }
@@ -365,17 +365,17 @@ struct GenerateReportSheet: View {
                     HStack {
                         if isGenerating {
                             ProgressView()
-                                .tint(.white)
+                                .tint(Color.cream)
                         } else {
                             Image(systemName: "doc.badge.plus")
                         }
                         Text(isGenerating ? "Generating..." : "Generate PDF")
                     }
                     .font(.headline)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.cream)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(expenseCount > 0 ? Color.green : Color.gray)
+                    .background(expenseCount > 0 ? Color.forestGreen : Color.gray)
                     .cornerRadius(12)
                 }
                 .disabled(expenseCount == 0 || isGenerating)
@@ -389,6 +389,7 @@ struct GenerateReportSheet: View {
                     Button("Cancel") {
                         onDismiss()
                     }
+                    .foregroundStyle(Color.navy)
                 }
             }
         }

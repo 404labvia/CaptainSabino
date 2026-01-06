@@ -70,7 +70,12 @@ struct SettingsView: View {
                 Button {
                     showingEditSettings = true
                 } label: {
-                    Label("Edit Information", systemImage: "pencil")
+                    HStack(spacing: 8) {
+                        Image(systemName: "pencil")
+                            .foregroundStyle(Color.gold)
+                        Text("Edit Information")
+                            .foregroundStyle(.primary)
+                    }
                 }
             } else {
                 Text("No settings configured")
@@ -86,7 +91,10 @@ struct SettingsView: View {
                     ClaudeAPISettingsView()
                 } label: {
                     HStack {
-                        Label("Claude API Key", systemImage: "key")
+                        Image(systemName: "key")
+                            .foregroundStyle(Color.gold)
+                        Text("Claude API Key")
+                            .foregroundStyle(.primary)
                         Spacer()
                         if let apiKey = settings.claudeAPIKey, !apiKey.isEmpty {
                             Image(systemName: "checkmark.circle.fill")
@@ -103,8 +111,10 @@ struct SettingsView: View {
                 if !learnedKeywords.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Label("Learned keywords", systemImage: "brain.head.profile")
-                                .foregroundColor(.blue)
+                            Image(systemName: "brain.head.profile")
+                                .foregroundStyle(Color.gold)
+                            Text("Learned keywords")
+                                .foregroundStyle(.primary)
                             Spacer()
                             Text("\(learnedKeywords.count)")
                                 .foregroundColor(.secondary)
@@ -136,11 +146,21 @@ struct SettingsView: View {
             LabeledContent("Build", value: "1")
 
             Link(destination: URL(string: "https://support.apple.com")!) {
-                Label("Support", systemImage: "questionmark.circle")
+                HStack(spacing: 8) {
+                    Image(systemName: "questionmark.circle")
+                        .foregroundStyle(Color.gold)
+                    Text("Support")
+                        .foregroundStyle(.primary)
+                }
             }
 
             Link(destination: URL(string: "https://www.apple.com/legal/privacy/")!) {
-                Label("Privacy Policy", systemImage: "hand.raised")
+                HStack(spacing: 8) {
+                    Image(systemName: "hand.raised")
+                        .foregroundStyle(Color.gold)
+                    Text("Privacy Policy")
+                        .foregroundStyle(.primary)
+                }
             }
         }
     }
