@@ -220,14 +220,17 @@ struct ReportListView: View {
         }
 
         do {
-            let _ = try PDFService.shared.generateExpenseReport(
+            let reportURL = try PDFService.shared.generateExpenseReport(
                 expenses: monthExpenses,
                 month: selectedDate,
                 settings: yachtSettings
             )
             loadReports()
             showingGenerateSheet = false
-            showToast("Report generated successfully")
+            // Apri direttamente il PDF con QuickLook
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                quickLookURL = reportURL
+            }
         } catch {
             alertMessage = "Failed to generate report: \(error.localizedDescription)"
             showingAlert = true
