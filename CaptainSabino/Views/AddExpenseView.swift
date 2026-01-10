@@ -199,7 +199,7 @@ struct AddExpenseView: View {
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
                                         Text(suggestion)
-                                            .foregroundStyle(.primary)
+                                            .foregroundStyle(Color.royalBlue)
                                         Spacer()
                                     }
                                     .padding(.horizontal, 12)
@@ -222,11 +222,11 @@ struct AddExpenseView: View {
         .cornerRadius(12)
     }
 
-    /// Merchants già usati, filtrati per testo inserito
+    /// Merchants già usati, filtrati per testo inserito (con Title Case)
     private var filteredMerchants: [String] {
         let allMerchants = Set(existingExpenses.compactMap { expense -> String? in
             let name = expense.merchantName.trimmingCharacters(in: .whitespacesAndNewlines)
-            return name.isEmpty ? nil : name
+            return name.isEmpty ? nil : name.toTitleCase()
         })
 
         let searchText = merchant.lowercased()
@@ -591,6 +591,17 @@ struct QuickDateButton: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "d MMM"
         return formatter.string(from: date)
+    }
+}
+
+// MARK: - String Extension for Title Case
+
+extension String {
+    /// Converte la stringa in Title Case (prima lettera maiuscola di ogni parola)
+    func toTitleCase() -> String {
+        return self.lowercased().split(separator: " ").map { word in
+            word.prefix(1).uppercased() + word.dropFirst()
+        }.joined(separator: " ")
     }
 }
 

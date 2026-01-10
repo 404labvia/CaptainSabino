@@ -43,39 +43,42 @@ struct EditExpenseView: View {
     // MARK: - Body
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                // Amount Section
-                amountSection
+        ZStack {
+            ScrollView {
+                VStack(spacing: 24) {
+                    // Amount Section
+                    amountSection
 
-                // Merchant Section
-                merchantSection
+                    // Merchant Section
+                    merchantSection
 
-                // Category Section
-                categorySection
+                    // Category Section
+                    categorySection
 
-                // Date Section
-                dateSection
+                    // Date Section
+                    dateSection
 
-                // Notes Section
-                notesSection
+                    // Notes Section
+                    notesSection
 
-                // Delete Section
-                deleteSection
+                    // Delete Section
+                    deleteSection
+
+                    // Spazio per il bottone fisso in basso
+                    Spacer().frame(height: 100)
+                }
+                .padding()
             }
-            .padding()
+            .background(Color(.systemGroupedBackground))
+
+            // Save Button fisso in basso
+            VStack {
+                Spacer()
+                saveButtonSection
+            }
         }
-        .background(Color(.systemGroupedBackground))
         .navigationTitle("Edit Expense")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Save") {
-                    updateExpense()
-                }
-                .fontWeight(.semibold)
-            }
-        }
         .sheet(isPresented: $showingDatePicker) {
             DatePicker(
                 "Select Date",
@@ -163,7 +166,7 @@ struct EditExpenseView: View {
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
                                         Text(suggestion)
-                                            .foregroundStyle(.primary)
+                                            .foregroundStyle(Color.royalBlue)
                                         Spacer()
                                     }
                                     .padding(.horizontal, 12)
@@ -186,11 +189,11 @@ struct EditExpenseView: View {
         .cornerRadius(12)
     }
 
-    /// Merchants già usati, filtrati per testo inserito
+    /// Merchants già usati, filtrati per testo inserito (con Title Case)
     private var filteredMerchants: [String] {
         let allMerchants = Set(existingExpenses.compactMap { exp -> String? in
             let name = exp.merchantName.trimmingCharacters(in: .whitespacesAndNewlines)
-            return name.isEmpty ? nil : name
+            return name.isEmpty ? nil : name.toTitleCase()
         })
 
         let searchText = merchant.lowercased()
@@ -325,6 +328,30 @@ struct EditExpenseView: View {
             .background(Color(.secondarySystemGroupedBackground))
             .cornerRadius(12)
         }
+    }
+
+    /// Save Button fisso in basso (stile premium giallo)
+    private var saveButtonSection: some View {
+        VStack(spacing: 8) {
+            Button {
+                updateExpense()
+            } label: {
+                Text("Save Expense")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.black)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(Color.premiumYellow)
+                    .cornerRadius(12)
+            }
+            .padding(.horizontal)
+        }
+        .padding(.bottom, 20)
+        .background(
+            Color(.systemGroupedBackground)
+                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: -4)
+        )
     }
 
     // MARK: - Helper Methods

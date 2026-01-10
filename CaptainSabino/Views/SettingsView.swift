@@ -17,6 +17,8 @@ struct SettingsView: View {
 
     @State private var showingEditSettings = false
     @State private var showingResetConfirmation = false
+    @State private var showAPISection = false
+    @State private var tapCount = 0
 
     private var yachtSettings: YachtSettings? {
         settings.first
@@ -28,10 +30,33 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 yachtInfoSection
-                receiptScanningSection
+                if showAPISection {
+                    receiptScanningSection
+                }
                 appInfoSection
             }
             .navigationTitle("Settings")
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("Settings")
+                        .font(.headline)
+                        .onTapGesture {
+                            tapCount += 1
+                            if tapCount >= 5 {
+                                withAnimation {
+                                    showAPISection.toggle()
+                                }
+                                tapCount = 0
+                            }
+                            // Reset counter dopo 2 secondi se non si raggiunge il target
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                if tapCount < 5 {
+                                    tapCount = 0
+                                }
+                            }
+                        }
+                }
+            }
             .sheet(isPresented: $showingEditSettings) {
                 EditSettingsView()
             }
