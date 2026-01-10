@@ -62,7 +62,7 @@ final class Expense {
     var receiptImagePath: String?
 
     /// Nome del commerciante/fornitore (es: "Esselunga", "ENI Station")
-    var merchantName: String
+    var merchantName: String = ""
 
     /// Tipo di inserimento della spesa (Manual, Receipt, Invoice)
     /// Default "R" per retrocompatibilità con dati esistenti (erano da scontrino)
