@@ -40,6 +40,8 @@ CaptainSabino/
 │   ├── PDFService.swift        # Report PDF con colonna Type
 │   ├── NotificationService.swift # Notifiche locali
 │   └── EmailService.swift      # Invio email
+├── Theme/
+│   └── AppColors.swift         # Palette colori premium nautici
 └── CaptainSabinoApp.swift      # Entry point
 ```
 
@@ -102,7 +104,8 @@ Categorie predefinite: Fuel, Food, Maintenance, Crew, Supplies, Transport, Moori
 - Salvati in `Documents/Reports/`
 - Includono grafico a torta per categorie
 - **Colonna Type** nella tabella dettagli (mostra C/R/I)
-- **Legenda** nell'header: "Entry Types: C = Cash/Manual, R = Receipt, I = Invoice"
+- **Legenda header su due colonne**: Yacht/Captain (sinistra), Entry Types C/R/I (destra)
+- **Auto-open con QuickLook** dopo generazione (senza toast)
 - **Click su card apre PDF** (QuickLook)
 - **Menu opzioni**: solo Delete
 - Ordinati per data più recente
@@ -128,9 +131,20 @@ Categorie predefinite: Fuel, Food, Maintenance, Crew, Supplies, Transport, Moori
 
 ## Design UI
 
+### Palette Colori Premium Nautici (AppColors.swift)
+Colori ispirati all'icona app (timone oro su sfondo navy):
+
+| Colore | Hex | Uso |
+|--------|-----|-----|
+| `navy` | #1C2541 | Pulsante +, Add Expense, Cancel buttons |
+| `gold` | #C9A961 | Tab bar selezionata, icone Settings |
+| `cream` | #F5F5DC | Testo su sfondi scuri |
+| `forestGreen` | #2D6A4F | Pulsanti Report/Generate PDF |
+| `premiumYellow` | #F4C430 | Pulsante Save Expense |
+| `royalBlue` | #1E56A0 | Sezione Date (calendario, selezione) |
+
 ### Generale
 - Stile moderno con cards e ombre
-- Colori: Blu per azioni primarie, Verde per Report, Giallo per Save
 - Corner radius: 12-15pt per cards
 - Usare `Color(.secondarySystemBackground)` per sfondi cards
 
@@ -170,3 +184,5 @@ xcodebuild clean -scheme CaptainSabino
 - QuickLook per visualizzazione PDF nativi iOS
 - ContentView gestisce `onSaveCompleted` callback per flusso fotocamera continuo
 - PDFService usa `formatCurrency()` per formato italiano nei report
+- **Reset badge notifica** all'apertura app (`UNUserNotificationCenter.current().setBadgeCount(0)`)
+- **Tab bar oro**: configurata con `UITabBarAppearance` in `configureTabBarAppearance()`
