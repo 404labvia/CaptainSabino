@@ -61,6 +61,9 @@ final class Expense {
     /// Percorso relativo dell'immagine dello scontrino (se presente)
     var receiptImagePath: String?
 
+    /// Nome del commerciante/fornitore (es: "Esselunga", "ENI Station")
+    var merchantName: String
+
     /// Tipo di inserimento della spesa (Manual, Receipt, Invoice)
     /// Default "R" per retrocompatibilità con dati esistenti (erano da scontrino)
     var entryTypeRaw: String = "R"
@@ -83,6 +86,7 @@ final class Expense {
     ///   - date: Data della spesa (default: oggi)
     ///   - notes: Note opzionali (default: stringa vuota)
     ///   - receiptImagePath: Percorso immagine scontrino (default: nil)
+    ///   - merchantName: Nome commerciante (default: stringa vuota)
     ///   - entryType: Tipo di inserimento (default: manual)
     init(
         amount: Double,
@@ -90,6 +94,7 @@ final class Expense {
         date: Date = Date(),
         notes: String = "",
         receiptImagePath: String? = nil,
+        merchantName: String = "",
         entryType: EntryType = .manual
     ) {
         self.id = UUID()
@@ -98,6 +103,7 @@ final class Expense {
         self.date = date
         self.notes = notes
         self.receiptImagePath = receiptImagePath
+        self.merchantName = merchantName
         self.entryTypeRaw = entryType.rawValue
         self.createdAt = Date()
     }
@@ -162,19 +168,22 @@ extension Expense {
                 amount: 250.50,
                 category: foodCategory,
                 date: Date(),
-                notes: "Weekly groceries"
+                notes: "Weekly groceries",
+                merchantName: "Esselunga"
             ),
             Expense(
                 amount: 850.00,
                 category: fuelCategory,
                 date: Calendar.current.date(byAdding: .day, value: -2, to: Date())!,
-                notes: "Fuel refill - Monaco Port"
+                notes: "Fuel refill - Monaco Port",
+                merchantName: "ENI Station"
             ),
             Expense(
                 amount: 45.00,
                 category: foodCategory,
                 date: Calendar.current.date(byAdding: .day, value: -5, to: Date())!,
-                notes: "Restaurant supplies"
+                notes: "Restaurant supplies",
+                merchantName: "Ristorante Da Mario"
             )
         ]
     }

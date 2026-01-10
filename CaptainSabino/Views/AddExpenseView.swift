@@ -32,6 +32,7 @@ struct AddExpenseView: View {
     var onSaveCompleted: (() -> Void)?
 
     @State private var amount = ""
+    @State private var merchant = ""
     @State private var selectedCategory: Category?
     @State private var date = Date()
     @State private var notes = ""
@@ -40,6 +41,7 @@ struct AddExpenseView: View {
     @State private var showingDatePicker = false
     @State private var isPossibleDuplicate = false
     @State private var tempSelectedDate = Date()
+    @State private var showMerchantSuggestions = false
 
     // MARK: - Body
 
@@ -51,7 +53,10 @@ struct AddExpenseView: View {
                         // Amount Section
                         amountSection
 
-                        // Date Section (sotto Amount)
+                        // Merchant Section (sotto Amount)
+                        merchantSection
+
+                        // Date Section
                         dateSection
 
                         // Category Section
@@ -158,6 +163,76 @@ struct AddExpenseView: View {
         .padding(.vertical, 20)
         .background(Color(.secondarySystemGroupedBackground))
         .cornerRadius(12)
+    }
+
+    /// Merchant Section - Campo con autocomplete
+    private var merchantSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("MERCHANT")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(.secondary)
+
+            ZStack(alignment: .topLeading) {
+                VStack(spacing: 0) {
+                    // Campo di input
+                    TextField("Store or supplier name", text: $merchant)
+                        .textInputAutocapitalization(.words)
+                        .padding(12)
+                        .background(Color(.tertiarySystemGroupedBackground))
+                        .cornerRadius(8)
+                        .onChange(of: merchant) { _, newValue in
+                            // Mostra suggerimenti solo se >= 3 caratteri
+                            showMerchantSuggestions = newValue.count >= 3 && !filteredMerchants.isEmpty
+                        }
+
+                    // Lista suggerimenti (sotto il campo)
+                    if showMerchantSuggestions && !filteredMerchants.isEmpty {
+                        VStack(spacing: 0) {
+                            ForEach(filteredMerchants.prefix(5), id: \.self) { suggestion in
+                                Button {
+                                    merchant = suggestion
+                                    showMerchantSuggestions = false
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "clock.arrow.circlepath")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        Text(suggestion)
+                                            .foregroundStyle(.primary)
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 10)
+                                    .background(Color(.tertiarySystemGroupedBackground))
+                                }
+                                Divider()
+                                    .padding(.leading, 12)
+                            }
+                        }
+                        .background(Color(.tertiarySystemGroupedBackground))
+                        .cornerRadius(8)
+                        .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(Color(.secondarySystemGroupedBackground))
+        .cornerRadius(12)
+    }
+
+    /// Merchants già usati, filtrati per testo inserito
+    private var filteredMerchants: [String] {
+        let allMerchants = Set(existingExpenses.compactMap { expense -> String? in
+            let name = expense.merchantName.trimmingCharacters(in: .whitespacesAndNewlines)
+            return name.isEmpty ? nil : name
+        })
+
+        let searchText = merchant.lowercased()
+        return allMerchants
+            .filter { $0.lowercased().contains(searchText) }
+            .sorted()
     }
 
     /// Category Section - Griglia 3x4 con icone
@@ -340,6 +415,11 @@ struct AddExpenseView: View {
             amount = String(format: "%.2f", prefilledAmount)
         }
 
+        // Load prefilled merchant
+        if let prefilledMerchant = merchantName, !prefilledMerchant.isEmpty {
+            merchant = prefilledMerchant
+        }
+
         // Load prefilled category
         if let prefilledCategory = prefilledCategory {
             selectedCategory = prefilledCategory
@@ -388,14 +468,16 @@ struct AddExpenseView: View {
             category: selectedCategory,
             date: date,
             notes: notes.trimmingCharacters(in: .whitespacesAndNewlines),
+            merchantName: merchant.trimmingCharacters(in: .whitespacesAndNewlines),
             entryType: entryType
         )
 
         modelContext.insert(newExpense)
 
         // MACHINE LEARNING: Learn keywords from merchant name
-        if let merchantName = merchantName, !merchantName.isEmpty {
-            learnKeywordsFromMerchant(merchantName: merchantName, categoryName: selectedCategory.name)
+        let merchantTrimmed = merchant.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !merchantTrimmed.isEmpty {
+            learnKeywordsFromMerchant(merchantName: merchantTrimmed, categoryName: selectedCategory.name)
         }
 
         do {

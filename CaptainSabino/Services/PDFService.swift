@@ -257,7 +257,7 @@ class PDFService {
         return y
     }
 
-    /// Disegna la tabella dettagliata delle spese per giorno (con riga TOTAL)
+    /// Disegna la tabella dettagliata delle spese (una riga per spesa, con colonna Merchant)
     private func drawDetailedExpenseTable(
         in context: UIGraphicsPDFRendererContext,
         rect: CGRect,
@@ -279,10 +279,11 @@ class PDFService {
         "DETAILED EXPENSES".draw(at: CGPoint(x: leftMargin, y: y), withAttributes: titleAttributes)
         y += 25
 
-        // Column widths
+        // Column widths: Day | Category | Merchant | Type | Amount
         let dayWidth: CGFloat = tableWidth * 0.12
-        let categoryWidth: CGFloat = tableWidth * 0.48
-        let typeWidth: CGFloat = tableWidth * 0.12
+        let categoryWidth: CGFloat = tableWidth * 0.20
+        let merchantWidth: CGFloat = tableWidth * 0.30
+        let typeWidth: CGFloat = tableWidth * 0.10
         let amountWidth: CGFloat = tableWidth * 0.28
 
         // Header
@@ -298,86 +299,75 @@ class PDFService {
 
         "Day".draw(at: CGPoint(x: leftMargin + 8, y: y + 7), withAttributes: headerAttributes)
         "Category".draw(at: CGPoint(x: leftMargin + dayWidth + 8, y: y + 7), withAttributes: headerAttributes)
-        "Type".draw(at: CGPoint(x: leftMargin + dayWidth + categoryWidth + 8, y: y + 7), withAttributes: headerAttributes)
-        "Amount".draw(at: CGPoint(x: leftMargin + dayWidth + categoryWidth + typeWidth + 8, y: y + 7), withAttributes: headerAttributes)
+        "Merchant".draw(at: CGPoint(x: leftMargin + dayWidth + categoryWidth + 8, y: y + 7), withAttributes: headerAttributes)
+        "Type".draw(at: CGPoint(x: leftMargin + dayWidth + categoryWidth + merchantWidth + 8, y: y + 7), withAttributes: headerAttributes)
+        "Amount".draw(at: CGPoint(x: leftMargin + dayWidth + categoryWidth + merchantWidth + typeWidth + 8, y: y + 7), withAttributes: headerAttributes)
 
         y += 25
 
-        // Get all days in month
-        let calendar = Calendar.current
-        let range = calendar.range(of: .day, in: .month, for: month)!
-        let year = calendar.component(.year, from: month)
-        let monthComponent = calendar.component(.month, from: month)
+        // Sort expenses by date (ascending)
+        let sortedExpenses = expenses.sorted { $0.date < $1.date }
 
-        // Group expenses by day
-        let expensesByDay = Dictionary(grouping: expenses) { expense -> Int in
-            return calendar.component(.day, from: expense.date)
-        }
-
-        // Cell font
+        // Cell fonts
         let cellFont = UIFont.systemFont(ofSize: 9)
         let cellAttributes: [NSAttributedString.Key: Any] = [
             .font: cellFont,
             .foregroundColor: UIColor.black
         ]
 
+        let smallCellFont = UIFont.systemFont(ofSize: 8)
+        let smallCellAttributes: [NSAttributedString.Key: Any] = [
+            .font: smallCellFont,
+            .foregroundColor: UIColor.darkGray
+        ]
+
         var isAlternate = false
+        var lastDay: Int?
+        let calendar = Calendar.current
 
-        // Iterate through all days
-        for day in range {
-            guard let dateComponents = DateComponents(calendar: calendar, year: year, month: monthComponent, day: day).date else { continue }
-
-            let expensesForDay = expensesByDay[day] ?? []
-
-            if expensesForDay.isEmpty {
-                continue // Skip days without expenses
+        // Iterate through each expense individually
+        for expense in sortedExpenses {
+            // Check if we need a new page
+            if y > rect.height - 100 {
+                context.beginPage()
+                y = 40
             }
 
-            // Group by category for this day
-            let categorizedExpenses = Dictionary(grouping: expensesForDay) { $0.category?.name ?? "Unknown" }
-            let dayTotal = expensesForDay.reduce(0) { $0 + $1.amount }
-
-            var isFirstRowForDay = true
-
-            for (categoryName, categoryExpenses) in categorizedExpenses.sorted(by: { $0.key < $1.key }) {
-                // Check if we need a new page
-                if y > rect.height - 100 {
-                    context.beginPage()
-                    y = 40
-                }
-
-                // Alternate row color
-                if isAlternate {
-                    let rowRect = CGRect(x: leftMargin, y: y, width: tableWidth, height: 20)
-                    UIColor(red: 0.98, green: 0.98, blue: 0.98, alpha: 1.0).setFill()
-                    UIBezierPath(rect: rowRect).fill()
-                }
-
-                let categoryTotal = categoryExpenses.reduce(0) { $0 + $1.amount }
-
-                // Day (only on first row)
-                if isFirstRowForDay {
-                    let dayFormatter = DateFormatter()
-                    dayFormatter.dateFormat = "MMM d"
-                    let dayText = dayFormatter.string(from: dateComponents)
-                    dayText.draw(at: CGPoint(x: leftMargin + 8, y: y + 5), withAttributes: cellAttributes)
-                }
-
-                // Category
-                categoryName.draw(at: CGPoint(x: leftMargin + dayWidth + 8, y: y + 5), withAttributes: cellAttributes)
-
-                // Entry types for this category (C/R/I)
-                let entryTypes = Set(categoryExpenses.map { $0.entryType.displayLetter }).sorted().joined(separator: "/")
-                entryTypes.draw(at: CGPoint(x: leftMargin + dayWidth + categoryWidth + 8, y: y + 5), withAttributes: cellAttributes)
-
-                // Category total
-                formatCurrency(categoryTotal).draw(at: CGPoint(x: leftMargin + dayWidth + categoryWidth + typeWidth + 8, y: y + 5), withAttributes: cellAttributes)
-
-                isFirstRowForDay = false
-
-                y += 20
-                isAlternate.toggle()
+            // Alternate row color
+            if isAlternate {
+                let rowRect = CGRect(x: leftMargin, y: y, width: tableWidth, height: 20)
+                UIColor(red: 0.98, green: 0.98, blue: 0.98, alpha: 1.0).setFill()
+                UIBezierPath(rect: rowRect).fill()
             }
+
+            let currentDay = calendar.component(.day, from: expense.date)
+
+            // Day (only show on first occurrence of each day)
+            if lastDay != currentDay {
+                let dayFormatter = DateFormatter()
+                dayFormatter.dateFormat = "MMM d"
+                let dayText = dayFormatter.string(from: expense.date)
+                dayText.draw(at: CGPoint(x: leftMargin + 8, y: y + 5), withAttributes: cellAttributes)
+                lastDay = currentDay
+            }
+
+            // Category
+            let categoryName = expense.category?.name ?? "Unknown"
+            categoryName.draw(at: CGPoint(x: leftMargin + dayWidth + 8, y: y + 5), withAttributes: cellAttributes)
+
+            // Merchant (troncato se troppo lungo)
+            let merchantName = expense.merchantName.isEmpty ? "-" : expense.merchantName
+            let truncatedMerchant = truncateText(merchantName, maxWidth: merchantWidth - 16, font: smallCellFont)
+            truncatedMerchant.draw(at: CGPoint(x: leftMargin + dayWidth + categoryWidth + 8, y: y + 5), withAttributes: smallCellAttributes)
+
+            // Entry type (C/R/I)
+            expense.entryType.displayLetter.draw(at: CGPoint(x: leftMargin + dayWidth + categoryWidth + merchantWidth + 8, y: y + 5), withAttributes: cellAttributes)
+
+            // Amount
+            formatCurrency(expense.amount).draw(at: CGPoint(x: leftMargin + dayWidth + categoryWidth + merchantWidth + typeWidth + 8, y: y + 5), withAttributes: cellAttributes)
+
+            y += 20
+            isAlternate.toggle()
         }
 
         // Footer con riga TOTAL
@@ -395,9 +385,21 @@ class PDFService {
         ]
 
         "TOTAL".draw(at: CGPoint(x: leftMargin + 8, y: y + 8), withAttributes: footerAttributes)
-        formatCurrency(totalAmount).draw(at: CGPoint(x: leftMargin + dayWidth + categoryWidth + 8, y: y + 8), withAttributes: footerAttributes)
+        formatCurrency(totalAmount).draw(at: CGPoint(x: leftMargin + dayWidth + categoryWidth + merchantWidth + 8, y: y + 8), withAttributes: footerAttributes)
 
         return y + 40
+    }
+
+    /// Tronca il testo se supera la larghezza massima
+    private func truncateText(_ text: String, maxWidth: CGFloat, font: UIFont) -> String {
+        let attributes: [NSAttributedString.Key: Any] = [.font: font]
+        var truncated = text
+
+        while truncated.size(withAttributes: attributes).width > maxWidth && truncated.count > 3 {
+            truncated = String(truncated.dropLast(2)) + "…"
+        }
+
+        return truncated
     }
 
     /// Disegna il grafico a torta delle spese per categoria

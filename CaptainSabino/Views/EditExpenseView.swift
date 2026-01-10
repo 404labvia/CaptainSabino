@@ -14,10 +14,12 @@ struct EditExpenseView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Query private var categories: [Category]
+    @Query private var existingExpenses: [Expense]
 
     let expense: Expense
 
     @State private var amount: String
+    @State private var merchant: String
     @State private var selectedCategory: Category?
     @State private var date: Date
     @State private var notes: String
@@ -25,12 +27,14 @@ struct EditExpenseView: View {
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @State private var showingDatePicker = false
+    @State private var showMerchantSuggestions = false
 
     // MARK: - Initializer
 
     init(expense: Expense) {
         self.expense = expense
         _amount = State(initialValue: String(format: "%.2f", expense.amount))
+        _merchant = State(initialValue: expense.merchantName)
         _selectedCategory = State(initialValue: expense.category)
         _date = State(initialValue: expense.date)
         _notes = State(initialValue: expense.notes)
@@ -43,6 +47,9 @@ struct EditExpenseView: View {
             VStack(spacing: 24) {
                 // Amount Section
                 amountSection
+
+                // Merchant Section
+                merchantSection
 
                 // Category Section
                 categorySection
@@ -121,6 +128,75 @@ struct EditExpenseView: View {
         .padding(.vertical, 20)
         .background(Color(.secondarySystemGroupedBackground))
         .cornerRadius(12)
+    }
+
+    /// Merchant Section - Campo con autocomplete
+    private var merchantSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("MERCHANT")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(.secondary)
+
+            ZStack(alignment: .topLeading) {
+                VStack(spacing: 0) {
+                    // Campo di input
+                    TextField("Store or supplier name", text: $merchant)
+                        .textInputAutocapitalization(.words)
+                        .padding(12)
+                        .background(Color(.tertiarySystemGroupedBackground))
+                        .cornerRadius(8)
+                        .onChange(of: merchant) { _, newValue in
+                            showMerchantSuggestions = newValue.count >= 3 && !filteredMerchants.isEmpty
+                        }
+
+                    // Lista suggerimenti
+                    if showMerchantSuggestions && !filteredMerchants.isEmpty {
+                        VStack(spacing: 0) {
+                            ForEach(filteredMerchants.prefix(5), id: \.self) { suggestion in
+                                Button {
+                                    merchant = suggestion
+                                    showMerchantSuggestions = false
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "clock.arrow.circlepath")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        Text(suggestion)
+                                            .foregroundStyle(.primary)
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 10)
+                                    .background(Color(.tertiarySystemGroupedBackground))
+                                }
+                                Divider()
+                                    .padding(.leading, 12)
+                            }
+                        }
+                        .background(Color(.tertiarySystemGroupedBackground))
+                        .cornerRadius(8)
+                        .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(Color(.secondarySystemGroupedBackground))
+        .cornerRadius(12)
+    }
+
+    /// Merchants già usati, filtrati per testo inserito
+    private var filteredMerchants: [String] {
+        let allMerchants = Set(existingExpenses.compactMap { exp -> String? in
+            let name = exp.merchantName.trimmingCharacters(in: .whitespacesAndNewlines)
+            return name.isEmpty ? nil : name
+        })
+
+        let searchText = merchant.lowercased()
+        return allMerchants
+            .filter { $0.lowercased().contains(searchText) }
+            .sorted()
     }
 
     /// Category Section - Griglia 3x4 con icone
@@ -283,6 +359,7 @@ struct EditExpenseView: View {
         expense.category = selectedCategory
         expense.date = date
         expense.notes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        expense.merchantName = merchant.trimmingCharacters(in: .whitespacesAndNewlines)
 
         do {
             try modelContext.save()
