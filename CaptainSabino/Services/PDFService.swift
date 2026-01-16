@@ -355,8 +355,8 @@ class PDFService {
             let categoryName = expense.category?.name ?? "Unknown"
             categoryName.draw(at: CGPoint(x: leftMargin + dayWidth + 8, y: y + 5), withAttributes: cellAttributes)
 
-            // Merchant (troncato se troppo lungo)
-            let merchantName = expense.merchantName.isEmpty ? "-" : expense.merchantName
+            // Merchant (Title Case, troncato se troppo lungo)
+            let merchantName = expense.merchantName.isEmpty ? "-" : toTitleCase(expense.merchantName)
             let truncatedMerchant = truncateText(merchantName, maxWidth: merchantWidth - 16, font: smallCellFont)
             truncatedMerchant.draw(at: CGPoint(x: leftMargin + dayWidth + categoryWidth + 8, y: y + 5), withAttributes: smallCellAttributes)
 
@@ -400,6 +400,13 @@ class PDFService {
         }
 
         return truncated
+    }
+
+    /// Converte stringa in Title Case (prima lettera maiuscola di ogni parola)
+    private func toTitleCase(_ text: String) -> String {
+        return text.lowercased().split(separator: " ").map { word in
+            word.prefix(1).uppercased() + word.dropFirst()
+        }.joined(separator: " ")
     }
 
     /// Disegna il grafico a torta delle spese per categoria

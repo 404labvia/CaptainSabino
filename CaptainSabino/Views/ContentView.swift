@@ -331,7 +331,8 @@ struct ContentView: View {
             ("Parking", "car.fill", "#5E35B1"),
             ("Tender Fuel", "fuelpump.fill", "#607D8B"),
             ("Fly", "airplane", "#00BCD4"),
-            ("Supermarket", "bag", "#8BC34A")
+            ("Supermarket", "bag", "#8BC34A"),
+            ("Laundry", "washer", "#FFC107")
         ]
 
         for newCat in newCategories {

@@ -35,7 +35,6 @@ struct AddExpenseView: View {
     @State private var merchant = ""
     @State private var selectedCategory: Category?
     @State private var date = Date()
-    @State private var notes = ""
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @State private var showingDatePicker = false
@@ -56,14 +55,11 @@ struct AddExpenseView: View {
                         // Merchant Section (sotto Amount)
                         merchantSection
 
-                        // Date Section
+                        // Date Section (con scroll orizzontale)
                         dateSection
 
                         // Category Section
                         categorySection
-
-                        // Notes Section
-                        notesSection
 
                         // Spazio per il bottone fisso in basso
                         Spacer().frame(height: 100)
@@ -268,7 +264,7 @@ struct AddExpenseView: View {
         .cornerRadius(12)
     }
 
-    /// Date Section - Data centrale + quick buttons + calendario
+    /// Date Section - Calendario fisso + scroll orizzontale 14 giorni
     private var dateSection: some View {
         VStack(spacing: 12) {
             Text("DATE")
@@ -281,66 +277,48 @@ struct AddExpenseView: View {
                 .font(.title3)
                 .fontWeight(.semibold)
 
-            // Quick buttons + calendario (più recente a destra)
-            HStack(spacing: 12) {
-                // Calendario (a sinistra)
+            // Calendario fisso + scroll orizzontale date
+            HStack(spacing: 8) {
+                // Calendario (fisso a sinistra)
                 Button {
                     showingDatePicker = true
                 } label: {
                     Image(systemName: "calendar")
                         .font(.title3)
                         .foregroundStyle(Color.royalBlue)
-                        .frame(width: 60, height: 44)
+                        .frame(width: 50, height: 44)
                         .background(Color(.tertiarySystemGroupedBackground))
                         .cornerRadius(8)
                 }
 
-                // 2 giorni fa
-                QuickDateButton(
-                    date: Calendar.current.date(byAdding: .day, value: -2, to: Date()) ?? Date(),
-                    isSelected: isSameDay(date, Calendar.current.date(byAdding: .day, value: -2, to: Date()) ?? Date())
-                ) {
-                    date = Calendar.current.date(byAdding: .day, value: -2, to: Date()) ?? Date()
-                }
-
-                // Ieri
-                QuickDateButton(
-                    date: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date(),
-                    isSelected: isSameDay(date, Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date())
-                ) {
-                    date = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
-                }
-
-                // Oggi (più recente, a destra)
-                QuickDateButton(
-                    date: Date(),
-                    isSelected: isSameDay(date, Date())
-                ) {
-                    date = Date()
+                // Scroll orizzontale 14 giorni (oggi a destra)
+                ScrollViewReader { proxy in
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(0..<14, id: \.self) { daysAgo in
+                                let buttonDate = Calendar.current.date(byAdding: .day, value: -daysAgo, to: Date()) ?? Date()
+                                QuickDateButton(
+                                    date: buttonDate,
+                                    isSelected: isSameDay(date, buttonDate)
+                                ) {
+                                    date = buttonDate
+                                }
+                                .id(daysAgo)
+                            }
+                        }
+                        .padding(.horizontal, 4)
+                    }
+                    .onAppear {
+                        // Scroll alla data selezionata o a oggi (posizione 0)
+                        let selectedDaysAgo = Calendar.current.dateComponents([.day], from: date, to: Date()).day ?? 0
+                        if selectedDaysAgo >= 0 && selectedDaysAgo < 14 {
+                            proxy.scrollTo(selectedDaysAgo, anchor: .trailing)
+                        }
+                    }
                 }
             }
         }
         .frame(maxWidth: .infinity)
-        .padding()
-        .background(Color(.secondarySystemGroupedBackground))
-        .cornerRadius(12)
-    }
-
-    /// Notes Section - Una riga
-    private var notesSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("NOTES (OPTIONAL)")
-                .font(.caption)
-                .fontWeight(.semibold)
-                .foregroundStyle(.secondary)
-
-            TextEditor(text: $notes)
-                .frame(height: 44)
-                .scrollContentBackground(.hidden)
-                .padding(8)
-                .background(Color(.tertiarySystemGroupedBackground))
-                .cornerRadius(8)
-        }
         .padding()
         .background(Color(.secondarySystemGroupedBackground))
         .cornerRadius(12)
@@ -467,7 +445,7 @@ struct AddExpenseView: View {
             amount: amountValue,
             category: selectedCategory,
             date: date,
-            notes: notes.trimmingCharacters(in: .whitespacesAndNewlines),
+            notes: "",
             merchantName: merchant.trimmingCharacters(in: .whitespacesAndNewlines),
             entryType: entryType
         )

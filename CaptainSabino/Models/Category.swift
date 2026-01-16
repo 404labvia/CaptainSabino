@@ -121,6 +121,11 @@ extension Category {
                 name: "Supermarket",
                 icon: "bag",
                 color: "#8BC34A"  // Verde lime
+            ),
+            Category(
+                name: "Laundry",
+                icon: "washer",
+                color: "#FFC107"  // Amber
             )
         ]
     }
