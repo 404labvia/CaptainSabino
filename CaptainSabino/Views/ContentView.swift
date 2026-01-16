@@ -291,7 +291,7 @@ struct ContentView: View {
     }
 
     private func updateCategoryColorsIfNeeded() {
-        let hasUpdatedCategories = UserDefaults.standard.bool(forKey: "hasUpdatedCategories_v6")
+        let hasUpdatedCategories = UserDefaults.standard.bool(forKey: "hasUpdatedCategories_v7")
         guard !hasUpdatedCategories else { return }
 
         let colorMapping: [String: String] = [
@@ -343,7 +343,7 @@ struct ContentView: View {
         }
 
         try? modelContext.save()
-        UserDefaults.standard.set(true, forKey: "hasUpdatedCategories_v6")
+        UserDefaults.standard.set(true, forKey: "hasUpdatedCategories_v7")
     }
 
     private func requestNotificationPermissions() {

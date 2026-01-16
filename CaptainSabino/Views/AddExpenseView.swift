@@ -264,7 +264,12 @@ struct AddExpenseView: View {
         .cornerRadius(12)
     }
 
-    /// Date Section - Calendario fisso + scroll orizzontale 14 giorni
+    /// Data di riferimento per lo scroll (data OCR se presente, altrimenti oggi)
+    private var scrollReferenceDate: Date {
+        prefilledDate ?? Date()
+    }
+
+    /// Date Section - Calendario fisso + scroll orizzontale 30 giorni
     private var dateSection: some View {
         VStack(spacing: 12) {
             Text("DATE")
@@ -291,12 +296,12 @@ struct AddExpenseView: View {
                         .cornerRadius(8)
                 }
 
-                // Scroll orizzontale 14 giorni (oggi a destra)
+                // Scroll orizzontale 30 giorni (data riferimento a destra)
                 ScrollViewReader { proxy in
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
-                            ForEach(0..<14, id: \.self) { daysAgo in
-                                let buttonDate = Calendar.current.date(byAdding: .day, value: -daysAgo, to: Date()) ?? Date()
+                            ForEach(0..<30, id: \.self) { daysAgo in
+                                let buttonDate = Calendar.current.date(byAdding: .day, value: -daysAgo, to: scrollReferenceDate) ?? scrollReferenceDate
                                 QuickDateButton(
                                     date: buttonDate,
                                     isSelected: isSameDay(date, buttonDate)
@@ -309,9 +314,9 @@ struct AddExpenseView: View {
                         .padding(.horizontal, 4)
                     }
                     .onAppear {
-                        // Scroll alla data selezionata o a oggi (posizione 0)
-                        let selectedDaysAgo = Calendar.current.dateComponents([.day], from: date, to: Date()).day ?? 0
-                        if selectedDaysAgo >= 0 && selectedDaysAgo < 14 {
+                        // Scroll alla data selezionata
+                        let selectedDaysAgo = Calendar.current.dateComponents([.day], from: date, to: scrollReferenceDate).day ?? 0
+                        if selectedDaysAgo >= 0 && selectedDaysAgo < 30 {
                             proxy.scrollTo(selectedDaysAgo, anchor: .trailing)
                         }
                     }

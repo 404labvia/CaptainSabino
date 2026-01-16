@@ -230,7 +230,12 @@ struct EditExpenseView: View {
         .cornerRadius(12)
     }
 
-    /// Date Section - Calendario fisso + scroll orizzontale 14 giorni
+    /// Data di riferimento per lo scroll (data della spesa)
+    private var scrollReferenceDate: Date {
+        expense.date
+    }
+
+    /// Date Section - Calendario fisso + scroll orizzontale 30 giorni
     private var dateSection: some View {
         VStack(spacing: 12) {
             Text("DATE")
@@ -257,12 +262,12 @@ struct EditExpenseView: View {
                         .cornerRadius(8)
                 }
 
-                // Scroll orizzontale 14 giorni (oggi a destra)
+                // Scroll orizzontale 30 giorni (data spesa a destra)
                 ScrollViewReader { proxy in
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
-                            ForEach(0..<14, id: \.self) { daysAgo in
-                                let buttonDate = Calendar.current.date(byAdding: .day, value: -daysAgo, to: Date()) ?? Date()
+                            ForEach(0..<30, id: \.self) { daysAgo in
+                                let buttonDate = Calendar.current.date(byAdding: .day, value: -daysAgo, to: scrollReferenceDate) ?? scrollReferenceDate
                                 QuickDateButton(
                                     date: buttonDate,
                                     isSelected: isSameDay(date, buttonDate)
@@ -276,8 +281,8 @@ struct EditExpenseView: View {
                     }
                     .onAppear {
                         // Scroll alla data selezionata
-                        let selectedDaysAgo = Calendar.current.dateComponents([.day], from: date, to: Date()).day ?? 0
-                        if selectedDaysAgo >= 0 && selectedDaysAgo < 14 {
+                        let selectedDaysAgo = Calendar.current.dateComponents([.day], from: date, to: scrollReferenceDate).day ?? 0
+                        if selectedDaysAgo >= 0 && selectedDaysAgo < 30 {
                             proxy.scrollTo(selectedDaysAgo, anchor: .trailing)
                         }
                     }
