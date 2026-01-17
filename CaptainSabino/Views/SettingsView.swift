@@ -474,18 +474,6 @@ struct ClaudeAPISettingsView: View {
     }
 }
 
-// MARK: - ShareSheet (UIKit wrapper per condivisione)
-
-struct ShareSheet: UIViewControllerRepresentable {
-    let activityItems: [Any]
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
-    }
-
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
-}
-
 // MARK: - DocumentPicker (UIKit wrapper per selezione file)
 
 struct DocumentPicker: UIViewControllerRepresentable {
