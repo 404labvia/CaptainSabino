@@ -7,6 +7,8 @@
 
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
+import UIKit
 
 struct SettingsView: View {
     // MARK: - Properties
@@ -14,11 +16,23 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var settings: [YachtSettings]
     @Query private var learnedKeywords: [LearnedKeyword]
+    @Query private var expenses: [Expense]
+    @Query private var categories: [Category]
 
     @State private var showingEditSettings = false
     @State private var showingResetConfirmation = false
     @State private var showAPISection = false
     @State private var tapCount = 0
+
+    // Export/Import states
+    @State private var showingExportShare = false
+    @State private var exportFileURL: URL?
+    @State private var showingImportPicker = false
+    @State private var showingImportResult = false
+    @State private var importResultMessage = ""
+    @State private var showingImportError = false
+    @State private var importErrorMessage = ""
+    @State private var isExporting = false
 
     private var yachtSettings: YachtSettings? {
         settings.first
@@ -30,6 +44,7 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 yachtInfoSection
+                dataManagementSection
                 if showAPISection {
                     receiptScanningSection
                 }
@@ -72,6 +87,29 @@ struct SettingsView: View {
             } message: {
                 Text("This will delete all learned keywords. The system will start learning again from scratch.")
             }
+            .sheet(isPresented: $showingExportShare) {
+                if let url = exportFileURL {
+                    ShareSheet(activityItems: [url])
+                }
+            }
+            .sheet(isPresented: $showingImportPicker) {
+                DocumentPicker(
+                    contentTypes: [.json],
+                    onPick: { url in
+                        importDatabase(from: url)
+                    }
+                )
+            }
+            .alert("Import Completed", isPresented: $showingImportResult) {
+                Button("OK") { }
+            } message: {
+                Text(importResultMessage)
+            }
+            .alert("Import Error", isPresented: $showingImportError) {
+                Button("OK") { }
+            } message: {
+                Text(importErrorMessage)
+            }
         }
     }
 
@@ -82,6 +120,48 @@ struct SettingsView: View {
             modelContext.delete(keyword)
         }
         try? modelContext.save()
+    }
+
+    private func exportDatabase() {
+        isExporting = true
+
+        do {
+            let url = try DatabaseExportService.shared.exportDatabase(
+                expenses: expenses,
+                categories: categories,
+                yachtName: yachtSettings?.yachtName ?? "Unknown",
+                captainName: yachtSettings?.captainName ?? "Unknown"
+            )
+            exportFileURL = url
+            showingExportShare = true
+        } catch {
+            importErrorMessage = "Export failed: \(error.localizedDescription)"
+            showingImportError = true
+        }
+
+        isExporting = false
+    }
+
+    private func importDatabase(from url: URL) {
+        do {
+            // Ottieni accesso sicuro al file
+            guard url.startAccessingSecurityScopedResource() else {
+                throw ImportError.invalidFormat
+            }
+            defer { url.stopAccessingSecurityScopedResource() }
+
+            let result = try DatabaseExportService.shared.importDatabase(
+                from: url,
+                modelContext: modelContext,
+                existingCategories: categories
+            )
+
+            importResultMessage = result.summary
+            showingImportResult = true
+        } catch {
+            importErrorMessage = error.localizedDescription
+            showingImportError = true
+        }
     }
 
     // MARK: - View Components
@@ -106,6 +186,53 @@ struct SettingsView: View {
                 Text("No settings configured")
                     .foregroundStyle(.secondary)
             }
+        }
+    }
+
+    private var dataManagementSection: some View {
+        Section {
+            // Export
+            Button {
+                exportDatabase()
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "square.and.arrow.up")
+                        .foregroundStyle(Color.gold)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Export Database")
+                            .foregroundStyle(.primary)
+                        Text("\(expenses.count) expenses")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if isExporting {
+                        ProgressView()
+                    }
+                }
+            }
+            .disabled(expenses.isEmpty || isExporting)
+
+            // Import
+            Button {
+                showingImportPicker = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "square.and.arrow.down")
+                        .foregroundStyle(Color.gold)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Import Database")
+                            .foregroundStyle(.primary)
+                        Text("From backup file")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        } header: {
+            Text("Data Management")
+        } footer: {
+            Text("Export creates a backup file you can share via AirDrop, email, or save to Files. Import merges data without duplicating existing expenses.")
         }
     }
 
@@ -347,9 +474,55 @@ struct ClaudeAPISettingsView: View {
     }
 }
 
+// MARK: - ShareSheet (UIKit wrapper per condivisione)
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let activityItems: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+// MARK: - DocumentPicker (UIKit wrapper per selezione file)
+
+struct DocumentPicker: UIViewControllerRepresentable {
+    let contentTypes: [UTType]
+    let onPick: (URL) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onPick: onPick)
+    }
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: contentTypes)
+        picker.delegate = context.coordinator
+        picker.allowsMultipleSelection = false
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+
+    class Coordinator: NSObject, UIDocumentPickerDelegate {
+        let onPick: (URL) -> Void
+
+        init(onPick: @escaping (URL) -> Void) {
+            self.onPick = onPick
+        }
+
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            if let url = urls.first {
+                onPick(url)
+            }
+        }
+    }
+}
+
 // MARK: - Preview
 
 #Preview {
     SettingsView()
-        .modelContainer(for: [YachtSettings.self])
+        .modelContainer(for: [YachtSettings.self, Expense.self, Category.self])
 }
