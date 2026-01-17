@@ -55,7 +55,7 @@ struct ReportView: View {
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showingShareSheet) {
             if let url = generatedPDFURL {
-                ShareSheet(activityItems: [url])
+                ShareSheet(items: [url])
             }
         }
         .alert(isGenerating ? "Generating..." : "Error", isPresented: .constant(isGenerating || showingAlert)) {
@@ -278,10 +278,10 @@ struct ReportView: View {
 // MARK: - Share Sheet (UIKit Bridge)
 
 struct ShareSheet: UIViewControllerRepresentable {
-    let activityItems: [Any]
+    let items: [Any]
 
     func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
     }
 
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}

@@ -89,7 +89,7 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showingExportShare) {
                 if let url = exportFileURL {
-                    ShareSheet(activityItems: [url])
+                    ShareSheet(items: [url])
                 }
             }
             .sheet(isPresented: $showingImportPicker) {
