@@ -284,7 +284,7 @@ class PDFService {
         let categoryWidth: CGFloat = tableWidth * 0.20
         let merchantWidth: CGFloat = tableWidth * 0.30
         let typeWidth: CGFloat = tableWidth * 0.10
-        let amountWidth: CGFloat = tableWidth * 0.28
+        // Amount uses remaining width (0.28)
 
         // Header
         let headerFont = UIFont.boldSystemFont(ofSize: 10)
