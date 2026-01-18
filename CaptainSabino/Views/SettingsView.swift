@@ -34,8 +34,22 @@ struct SettingsView: View {
     @State private var importErrorMessage = ""
     @State private var isExporting = false
 
+    // Report export/import states
+    @State private var showingReportExportShare = false
+    @State private var reportExportURLs: [URL] = []
+    @State private var showingReportImportPicker = false
+    @State private var showingReportImportResult = false
+    @State private var reportImportResultMessage = ""
+
     private var yachtSettings: YachtSettings? {
         settings.first
+    }
+
+    private var savedReportsCount: Int {
+        let reportsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Reports")
+        let files = (try? FileManager.default.contentsOfDirectory(atPath: reportsPath.path)) ?? []
+        return files.filter { $0.hasSuffix(".pdf") }.count
     }
 
     // MARK: - Body
@@ -45,6 +59,7 @@ struct SettingsView: View {
             List {
                 yachtInfoSection
                 dataManagementSection
+                reportManagementSection
                 if showAPISection {
                     receiptScanningSection
                 }
@@ -110,6 +125,24 @@ struct SettingsView: View {
             } message: {
                 Text(importErrorMessage)
             }
+            .sheet(isPresented: $showingReportExportShare) {
+                if !reportExportURLs.isEmpty {
+                    ShareSheet(items: reportExportURLs)
+                }
+            }
+            .sheet(isPresented: $showingReportImportPicker) {
+                DocumentPicker(
+                    contentTypes: [.pdf],
+                    onPick: { url in
+                        importReport(from: url)
+                    }
+                )
+            }
+            .alert("Reports Imported", isPresented: $showingReportImportResult) {
+                Button("OK") { }
+            } message: {
+                Text(reportImportResultMessage)
+            }
         }
     }
 
@@ -164,6 +197,62 @@ struct SettingsView: View {
             showingImportResult = true
         } catch {
             importErrorMessage = error.localizedDescription
+            showingImportError = true
+        }
+    }
+
+    private func exportReports() {
+        let reportsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Reports")
+
+        guard let files = try? FileManager.default.contentsOfDirectory(atPath: reportsPath.path) else {
+            return
+        }
+
+        let pdfURLs = files
+            .filter { $0.hasSuffix(".pdf") }
+            .map { reportsPath.appendingPathComponent($0) }
+
+        if !pdfURLs.isEmpty {
+            reportExportURLs = pdfURLs
+            showingReportExportShare = true
+        }
+    }
+
+    private func importReport(from url: URL) {
+        do {
+            guard url.startAccessingSecurityScopedResource() else {
+                throw ImportError.invalidFormat
+            }
+            defer { url.stopAccessingSecurityScopedResource() }
+
+            // Crea cartella Reports se non esiste
+            let reportsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("Reports")
+
+            if !FileManager.default.fileExists(atPath: reportsPath.path) {
+                try FileManager.default.createDirectory(at: reportsPath, withIntermediateDirectories: true)
+            }
+
+            // Copia il file nella cartella Reports
+            let fileName = url.lastPathComponent
+            let destinationURL = reportsPath.appendingPathComponent(fileName)
+
+            // Se esiste già, genera nome unico
+            var finalURL = destinationURL
+            var counter = 1
+            while FileManager.default.fileExists(atPath: finalURL.path) {
+                let name = (fileName as NSString).deletingPathExtension
+                finalURL = reportsPath.appendingPathComponent("\(name)_\(counter).pdf")
+                counter += 1
+            }
+
+            try FileManager.default.copyItem(at: url, to: finalURL)
+
+            reportImportResultMessage = "Report imported successfully:\n\(finalURL.lastPathComponent)"
+            showingReportImportResult = true
+        } catch {
+            importErrorMessage = "Failed to import report: \(error.localizedDescription)"
             showingImportError = true
         }
     }
@@ -237,6 +326,49 @@ struct SettingsView: View {
             Text("Data Management")
         } footer: {
             Text("Export creates a backup file you can share via AirDrop, email, or save to Files. Import merges data without duplicating existing expenses.")
+        }
+    }
+
+    private var reportManagementSection: some View {
+        Section {
+            // Export Reports
+            Button {
+                exportReports()
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "doc.text")
+                        .foregroundStyle(Color.gold)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Export Reports")
+                            .foregroundStyle(.primary)
+                        Text("\(savedReportsCount) PDF files")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .disabled(savedReportsCount == 0)
+
+            // Import Reports
+            Button {
+                showingReportImportPicker = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "doc.badge.plus")
+                        .foregroundStyle(Color.gold)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Import Report")
+                            .foregroundStyle(.primary)
+                        Text("From PDF file")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        } header: {
+            Text("Report Management")
+        } footer: {
+            Text("Export shares all generated PDF reports. Import adds a PDF report to your collection.")
         }
     }
 
