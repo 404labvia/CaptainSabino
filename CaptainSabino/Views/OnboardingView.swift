@@ -54,8 +54,8 @@ struct OnboardingView: View {
                     .padding()
                 }
             }
-            .navigationTitle("Setup")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
             .alert("Error", isPresented: $showingAlert) {
                 Button("OK") { }
             } message: {
@@ -132,12 +132,15 @@ struct OnboardingView: View {
                 Text("Get Started")
                     .font(.headline)
                     .fontWeight(.bold)
-                    .foregroundStyle(Color.royalBlue)
+                    .foregroundStyle(Color.cream)
                     .frame(maxWidth: .infinity)
                     .padding()
                     .background(Color.gold)
                     .cornerRadius(12)
             }
+
+            Spacer()
+                .frame(height: 40)
 
             // Import Database button
             Button {
@@ -155,7 +158,8 @@ struct OnboardingView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding()
+                .padding(.vertical, 10)
+                .padding(.horizontal)
                 .background(Color.white.opacity(0.1))
                 .cornerRadius(12)
             }

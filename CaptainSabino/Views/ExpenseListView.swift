@@ -18,8 +18,6 @@ struct ExpenseListView: View {
     @Query private var settings: [YachtSettings]
 
     @State private var searchText = ""
-    @State private var selectedCategory: Category?
-    @State private var showingFilterSheet = false
     @State private var showingAddExpense = false
     @State private var showingGenerateSheet = false
     @State private var reportSelectedMonth = Calendar.current.component(.month, from: Date())
@@ -63,9 +61,6 @@ struct ExpenseListView: View {
             .sheet(isPresented: $showingAddExpense) {
                 AddExpenseView()
             }
-            .sheet(isPresented: $showingFilterSheet) {
-                FilterView(selectedCategory: $selectedCategory, categories: categories)
-            }
             .sheet(isPresented: $showingGenerateSheet) {
                 GenerateReportSheet(
                     selectedMonth: $reportSelectedMonth,
@@ -101,7 +96,7 @@ struct ExpenseListView: View {
     
     private var filteredExpenses: [Expense] {
         var result = expenses
-        
+
         // Filter by search text
         if !searchText.isEmpty {
             result = result.filter { expense in
@@ -109,12 +104,7 @@ struct ExpenseListView: View {
                 expense.category?.name.localizedCaseInsensitiveContains(searchText) ?? false
             }
         }
-        
-        // Filter by category
-        if let selectedCategory = selectedCategory {
-            result = result.filter { $0.category?.id == selectedCategory.id }
-        }
-        
+
         return result
     }
     
@@ -159,19 +149,6 @@ struct ExpenseListView: View {
                 .cornerRadius(12)
                 .shadow(color: .black.opacity(0.2), radius: 6, x: 0, y: 3)
             }
-
-            // Filter Button
-            Button {
-                showingFilterSheet = true
-            } label: {
-                Image(systemName: selectedCategory == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
-                    .font(.title2)
-                    .frame(width: 50, height: 50)
-                    .background(Color(.secondarySystemBackground))
-                    .foregroundStyle(Color.navy)
-                    .cornerRadius(12)
-                    .shadow(color: .black.opacity(0.2), radius: 6, x: 0, y: 3)
-            }
         }
     }
 
@@ -199,23 +176,23 @@ struct ExpenseListView: View {
             Image(systemName: "tray")
                 .font(.system(size: 70))
                 .foregroundStyle(.gray)
-            
+
             Text("No Expenses Yet")
                 .font(.title2)
                 .fontWeight(.semibold)
-            
+
             Text("Tap + to add your first expense")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            
+
             Button {
                 showingAddExpense.toggle()
             } label: {
                 Label("Add Expense", systemImage: "plus.circle.fill")
                     .font(.headline)
                     .padding()
-                    .background(Color.blue)
-                    .foregroundStyle(.white)
+                    .background(Color.navy)
+                    .foregroundStyle(Color.cream)
                     .cornerRadius(12)
             }
         }
@@ -391,68 +368,6 @@ struct EntryTypeBadge: View {
             .fontWeight(.bold)
             .foregroundStyle(entryType.color)
             .frame(width: 20, height: 20)
-    }
-}
-
-// MARK: - Filter View
-
-struct FilterView: View {
-    @Binding var selectedCategory: Category?
-    let categories: [Category]
-    @Environment(\.dismiss) private var dismiss
-    
-    var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    Button {
-                        selectedCategory = nil
-                        dismiss()
-                    } label: {
-                        HStack {
-                            Text("All Categories")
-                            Spacer()
-                            if selectedCategory == nil {
-                                Image(systemName: "checkmark")
-                                    .foregroundStyle(.blue)
-                            }
-                        }
-                    }
-                }
-                
-                Section("Categories") {
-                    ForEach(categories) { category in
-                        Button {
-                            selectedCategory = category
-                            dismiss()
-                        } label: {
-                            HStack {
-                                Image(systemName: category.icon)
-                                    .foregroundStyle(category.color)
-                                
-                                Text(category.name)
-                                
-                                Spacer()
-                                
-                                if selectedCategory?.id == category.id {
-                                    Image(systemName: "checkmark")
-                                        .foregroundStyle(.blue)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            .navigationTitle("Filter by Category")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                }
-            }
-        }
     }
 }
 
