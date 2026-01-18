@@ -32,16 +32,27 @@ struct ExportedCategory: Codable {
     let isPredefined: Bool
 }
 
+/// Struttura per esportare una keyword appresa
+struct ExportedKeyword: Codable {
+    let categoryName: String
+    let keyword: String
+    let learnedDate: Date
+    let usageCount: Int
+    let lastUsedDate: Date
+}
+
 /// Struttura completa del database esportato
 struct ExportedDatabase: Codable {
     let version: Int
     let exportDate: Date
     let yachtName: String
     let captainName: String
+    let claudeAPIKey: String?
     let expenses: [ExportedExpense]
     let customCategories: [ExportedCategory]
+    let learnedKeywords: [ExportedKeyword]
 
-    static let currentVersion = 1
+    static let currentVersion = 2
 }
 
 // MARK: - Database Export Service
@@ -57,14 +68,18 @@ final class DatabaseExportService {
     /// - Parameters:
     ///   - expenses: Array di tutte le spese
     ///   - categories: Array di tutte le categorie
+    ///   - learnedKeywords: Array delle keyword apprese
     ///   - yachtName: Nome dello yacht
     ///   - captainName: Nome del capitano
+    ///   - claudeAPIKey: Claude API Key (opzionale)
     /// - Returns: URL del file JSON temporaneo
     func exportDatabase(
         expenses: [Expense],
         categories: [Category],
+        learnedKeywords: [LearnedKeyword],
         yachtName: String,
-        captainName: String
+        captainName: String,
+        claudeAPIKey: String?
     ) throws -> URL {
         // Converti spese
         let exportedExpenses = expenses.map { expense in
@@ -93,14 +108,27 @@ final class DatabaseExportService {
                 )
             }
 
+        // Converti keywords apprese
+        let exportedKeywords = learnedKeywords.map { keyword in
+            ExportedKeyword(
+                categoryName: keyword.categoryName,
+                keyword: keyword.keyword,
+                learnedDate: keyword.learnedDate,
+                usageCount: keyword.usageCount,
+                lastUsedDate: keyword.lastUsedDate
+            )
+        }
+
         // Crea struttura export
         let exportData = ExportedDatabase(
             version: ExportedDatabase.currentVersion,
             exportDate: Date(),
             yachtName: yachtName,
             captainName: captainName,
+            claudeAPIKey: claudeAPIKey,
             expenses: exportedExpenses,
-            customCategories: customCategories
+            customCategories: customCategories,
+            learnedKeywords: exportedKeywords
         )
 
         // Serializza in JSON
@@ -141,11 +169,15 @@ final class DatabaseExportService {
     ///   - url: URL del file JSON
     ///   - modelContext: Context SwiftData per inserimento
     ///   - existingCategories: Categorie esistenti per matching
+    ///   - existingKeywords: Keywords esistenti per controllo duplicati
+    ///   - yachtSettings: Settings esistenti per aggiornare API key
     /// - Returns: Risultato import con statistiche
     func importDatabase(
         from url: URL,
         modelContext: ModelContext,
-        existingCategories: [Category]
+        existingCategories: [Category],
+        existingKeywords: [LearnedKeyword] = [],
+        yachtSettings: YachtSettings? = nil
     ) throws -> ImportResult {
         // Leggi file
         let jsonData = try Data(contentsOf: url)
@@ -164,6 +196,7 @@ final class DatabaseExportService {
         var importedExpenses = 0
         var skippedExpenses = 0
         var importedCategories = 0
+        var importedKeywords = 0
 
         // Fetch spese esistenti per controllo duplicati
         let existingExpenseIDs = Set(existingCategories.flatMap { $0.expenses ?? [] }.map { $0.id.uuidString })
@@ -214,6 +247,35 @@ final class DatabaseExportService {
             importedExpenses += 1
         }
 
+        // Importa keywords apprese (se non esistono già)
+        let existingKeywordPairs = Set(existingKeywords.map { "\($0.categoryName)|\($0.keyword)" })
+        for exportedKeyword in importedData.learnedKeywords {
+            let keyPair = "\(exportedKeyword.categoryName)|\(exportedKeyword.keyword)"
+            if !existingKeywordPairs.contains(keyPair) {
+                let newKeyword = LearnedKeyword(
+                    categoryName: exportedKeyword.categoryName,
+                    keyword: exportedKeyword.keyword,
+                    learnedDate: exportedKeyword.learnedDate,
+                    usageCount: exportedKeyword.usageCount,
+                    lastUsedDate: exportedKeyword.lastUsedDate
+                )
+                modelContext.insert(newKeyword)
+                importedKeywords += 1
+            }
+        }
+
+        // Importa API Key (solo se presente nel backup e non già configurata)
+        var apiKeyImported = false
+        if let apiKey = importedData.claudeAPIKey, !apiKey.isEmpty {
+            if let settings = yachtSettings {
+                if settings.claudeAPIKey == nil || settings.claudeAPIKey?.isEmpty == true {
+                    settings.claudeAPIKey = apiKey
+                    settings.touch()
+                    apiKeyImported = true
+                }
+            }
+        }
+
         // Salva
         try modelContext.save()
 
@@ -222,6 +284,8 @@ final class DatabaseExportService {
             importedExpenses: importedExpenses,
             skippedExpenses: skippedExpenses,
             importedCategories: importedCategories,
+            importedKeywords: importedKeywords,
+            apiKeyImported: apiKeyImported,
             yachtName: importedData.yachtName,
             captainName: importedData.captainName,
             exportDate: importedData.exportDate
@@ -236,6 +300,8 @@ struct ImportResult {
     let importedExpenses: Int
     let skippedExpenses: Int
     let importedCategories: Int
+    let importedKeywords: Int
+    let apiKeyImported: Bool
     let yachtName: String
     let captainName: String
     let exportDate: Date
@@ -245,7 +311,7 @@ struct ImportResult {
         dateFormatter.dateStyle = .medium
         dateFormatter.timeStyle = .short
 
-        return """
+        var text = """
         Import completed!
 
         Source: \(yachtName) - \(captainName)
@@ -254,7 +320,14 @@ struct ImportResult {
         Expenses imported: \(importedExpenses)
         Expenses skipped (duplicates): \(skippedExpenses)
         Categories imported: \(importedCategories)
+        Keywords imported: \(importedKeywords)
         """
+
+        if apiKeyImported {
+            text += "\nAPI Key: imported ✓"
+        }
+
+        return text
     }
 }
 

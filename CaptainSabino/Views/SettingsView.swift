@@ -129,8 +129,10 @@ struct SettingsView: View {
             let url = try DatabaseExportService.shared.exportDatabase(
                 expenses: expenses,
                 categories: categories,
+                learnedKeywords: Array(learnedKeywords),
                 yachtName: yachtSettings?.yachtName ?? "Unknown",
-                captainName: yachtSettings?.captainName ?? "Unknown"
+                captainName: yachtSettings?.captainName ?? "Unknown",
+                claudeAPIKey: yachtSettings?.claudeAPIKey
             )
             exportFileURL = url
             showingExportShare = true
@@ -153,7 +155,9 @@ struct SettingsView: View {
             let result = try DatabaseExportService.shared.importDatabase(
                 from: url,
                 modelContext: modelContext,
-                existingCategories: categories
+                existingCategories: categories,
+                existingKeywords: Array(learnedKeywords),
+                yachtSettings: yachtSettings
             )
 
             importResultMessage = result.summary

@@ -7,42 +7,48 @@
 
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 struct OnboardingView: View {
     // MARK: - Properties
-    
+
     @Environment(\.modelContext) private var modelContext
     @Query private var settings: [YachtSettings]
-    
+    @Query private var categories: [Category]
+    @Query private var learnedKeywords: [LearnedKeyword]
+
     @State private var yachtName = ""
     @State private var captainName = ""
     @State private var showingAlert = false
     @State private var alertMessage = ""
-    
+
+    // Import states
+    @State private var showingImportPicker = false
+    @State private var showingImportResult = false
+    @State private var importResultMessage = ""
+    @State private var showingImportError = false
+    @State private var importErrorMessage = ""
+
     // MARK: - Body
-    
+
     var body: some View {
         NavigationStack {
             ZStack {
-                // Gradient background
-                LinearGradient(
-                    colors: [Color.blue.opacity(0.3), Color.cyan.opacity(0.2)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
-                
+                // Navy Blue background
+                Color.navy
+                    .ignoresSafeArea()
+
                 ScrollView {
                     VStack(spacing: 30) {
                         // Header
                         headerSection
-                        
+
                         // Form
                         formSection
-                        
-                        // Save Button
-                        saveButton
-                        
+
+                        // Buttons
+                        buttonsSection
+
                         Spacer(minLength: 50)
                     }
                     .padding()
@@ -55,29 +61,44 @@ struct OnboardingView: View {
             } message: {
                 Text(alertMessage)
             }
+            .sheet(isPresented: $showingImportPicker) {
+                DocumentPicker(
+                    contentTypes: [.json],
+                    onPick: { url in
+                        importDatabase(from: url)
+                    }
+                )
+            }
+            .alert("Import Completed", isPresented: $showingImportResult) {
+                Button("OK") { }
+            } message: {
+                Text(importResultMessage)
+            }
+            .alert("Import Error", isPresented: $showingImportError) {
+                Button("OK") { }
+            } message: {
+                Text(importErrorMessage)
+            }
         }
     }
-    
+
     // MARK: - View Components
-    
+
     private var headerSection: some View {
         VStack(spacing: 15) {
-            Image(systemName: "sailboat")
-                .font(.system(size: 80))
-                .foregroundStyle(.blue)
-            
-            Text("Welcome to YachtExpense")
-                .font(.title)
+            Text("Onboarding")
+                .font(.largeTitle)
                 .fontWeight(.bold)
-            
+                .foregroundStyle(Color.cream)
+
             Text("Let's set up your yacht information")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.cream.opacity(0.7))
                 .multilineTextAlignment(.center)
         }
         .padding(.top, 30)
     }
-    
+
     private var formSection: some View {
         VStack(spacing: 20) {
             // Yacht Name
@@ -103,22 +124,47 @@ struct OnboardingView: View {
         .cornerRadius(15)
         .shadow(radius: 5)
     }
-    
-    private var saveButton: some View {
-        Button(action: saveSettings) {
-            Text("Get Started")
-                .font(.headline)
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
+
+    private var buttonsSection: some View {
+        VStack(spacing: 16) {
+            // Get Started button
+            Button(action: saveSettings) {
+                Text("Get Started")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundStyle(Color.royalBlue)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.gold)
+                    .cornerRadius(12)
+            }
+
+            // Import Database button
+            Button {
+                showingImportPicker = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "square.and.arrow.down")
+                        .foregroundStyle(Color.gold)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Import Database")
+                            .foregroundStyle(Color.cream)
+                        Text("From backup file")
+                            .font(.caption)
+                            .foregroundStyle(Color.cream.opacity(0.7))
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding()
-                .background(Color.blue)
+                .background(Color.white.opacity(0.1))
                 .cornerRadius(12)
+            }
         }
         .padding(.horizontal)
     }
-    
+
     // MARK: - Methods
-    
+
     private func saveSettings() {
         // Validation
         guard !yachtName.isEmpty else {
@@ -154,7 +200,39 @@ struct OnboardingView: View {
             showAlert("Error saving settings: \(error.localizedDescription)")
         }
     }
-    
+
+    private func importDatabase(from url: URL) {
+        do {
+            // Ottieni accesso sicuro al file
+            guard url.startAccessingSecurityScopedResource() else {
+                throw ImportError.invalidFormat
+            }
+            defer { url.stopAccessingSecurityScopedResource() }
+
+            let result = try DatabaseExportService.shared.importDatabase(
+                from: url,
+                modelContext: modelContext,
+                existingCategories: categories,
+                existingKeywords: Array(learnedKeywords),
+                yachtSettings: settings.first
+            )
+
+            // Auto-fill yacht and captain name from imported data
+            if yachtName.isEmpty {
+                yachtName = result.yachtName
+            }
+            if captainName.isEmpty {
+                captainName = result.captainName
+            }
+
+            importResultMessage = result.summary
+            showingImportResult = true
+        } catch {
+            importErrorMessage = error.localizedDescription
+            showingImportError = true
+        }
+    }
+
     private func showAlert(_ message: String) {
         alertMessage = message
         showingAlert = true
@@ -165,5 +243,5 @@ struct OnboardingView: View {
 
 #Preview {
     OnboardingView()
-        .modelContainer(for: [YachtSettings.self])
+        .modelContainer(for: [YachtSettings.self, Category.self, LearnedKeyword.self])
 }
