@@ -168,6 +168,7 @@ final class DatabaseExportService {
     /// - Parameters:
     ///   - url: URL del file JSON
     ///   - modelContext: Context SwiftData per inserimento
+    ///   - existingExpenses: Spese esistenti per controllo duplicati
     ///   - existingCategories: Categorie esistenti per matching
     ///   - existingKeywords: Keywords esistenti per controllo duplicati
     ///   - yachtSettings: Settings esistenti per aggiornare API key
@@ -175,6 +176,7 @@ final class DatabaseExportService {
     func importDatabase(
         from url: URL,
         modelContext: ModelContext,
+        existingExpenses: [Expense],
         existingCategories: [Category],
         existingKeywords: [LearnedKeyword] = [],
         yachtSettings: YachtSettings? = nil
@@ -193,13 +195,13 @@ final class DatabaseExportService {
             throw ImportError.unsupportedVersion(importedData.version)
         }
 
-        var importedExpenses = 0
+        var importedExpensesCount = 0
         var skippedExpenses = 0
         var importedCategories = 0
         var importedKeywords = 0
 
-        // Fetch spese esistenti per controllo duplicati
-        let existingExpenseIDs = Set(existingCategories.flatMap { $0.expenses ?? [] }.map { $0.id.uuidString })
+        // Crea set di ID spese esistenti per controllo duplicati
+        let existingExpenseIDs = Set(existingExpenses.map { $0.id.uuidString })
 
         // Crea dizionario categorie per nome (per matching)
         var categoryByName: [String: Category] = [:]
@@ -244,7 +246,7 @@ final class DatabaseExportService {
             )
 
             modelContext.insert(newExpense)
-            importedExpenses += 1
+            importedExpensesCount += 1
         }
 
         // Importa keywords apprese (se non esistono già)
@@ -281,7 +283,7 @@ final class DatabaseExportService {
 
         return ImportResult(
             totalExpensesInFile: importedData.expenses.count,
-            importedExpenses: importedExpenses,
+            importedExpenses: importedExpensesCount,
             skippedExpenses: skippedExpenses,
             importedCategories: importedCategories,
             importedKeywords: importedKeywords,

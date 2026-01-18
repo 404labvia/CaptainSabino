@@ -41,6 +41,11 @@ struct SettingsView: View {
     @State private var showingReportImportResult = false
     @State private var reportImportResultMessage = ""
 
+    // Yacht/Captain update confirmation
+    @State private var showingUpdateConfirmation = false
+    @State private var pendingYachtName = ""
+    @State private var pendingCaptainName = ""
+
     private var yachtSettings: YachtSettings? {
         settings.first
     }
@@ -125,6 +130,14 @@ struct SettingsView: View {
             } message: {
                 Text(importErrorMessage)
             }
+            .alert("Update Yacht Info?", isPresented: $showingUpdateConfirmation) {
+                Button("Update") {
+                    updateYachtInfo()
+                }
+                Button("Keep Current", role: .cancel) { }
+            } message: {
+                Text("Do you want to update Yacht name and Captain name from the backup?")
+            }
             .sheet(isPresented: $showingReportExportShare) {
                 if !reportExportURLs.isEmpty {
                     ShareSheet(items: reportExportURLs)
@@ -188,6 +201,7 @@ struct SettingsView: View {
             let result = try DatabaseExportService.shared.importDatabase(
                 from: url,
                 modelContext: modelContext,
+                existingExpenses: Array(expenses),
                 existingCategories: categories,
                 existingKeywords: Array(learnedKeywords),
                 yachtSettings: yachtSettings
@@ -195,10 +209,33 @@ struct SettingsView: View {
 
             importResultMessage = result.summary
             showingImportResult = true
+
+            // Controlla se yacht/captain name sono diversi
+            if let currentSettings = yachtSettings {
+                let yachtDiffers = currentSettings.yachtName != result.yachtName
+                let captainDiffers = currentSettings.captainName != result.captainName
+
+                if yachtDiffers || captainDiffers {
+                    pendingYachtName = result.yachtName
+                    pendingCaptainName = result.captainName
+                    // Mostra conferma dopo l'alert di import completato
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        showingUpdateConfirmation = true
+                    }
+                }
+            }
         } catch {
             importErrorMessage = error.localizedDescription
             showingImportError = true
         }
+    }
+
+    private func updateYachtInfo() {
+        guard let currentSettings = yachtSettings else { return }
+        currentSettings.yachtName = pendingYachtName
+        currentSettings.captainName = pendingCaptainName
+        currentSettings.touch()
+        try? modelContext.save()
     }
 
     private func exportReports() {
@@ -215,7 +252,10 @@ struct SettingsView: View {
 
         if !pdfURLs.isEmpty {
             reportExportURLs = pdfURLs
-            showingReportExportShare = true
+            // Delay per assicurare che lo state sia aggiornato prima di mostrare lo sheet
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                showingReportExportShare = true
+            }
         }
     }
 

@@ -16,6 +16,7 @@ struct OnboardingView: View {
     @Query private var settings: [YachtSettings]
     @Query private var categories: [Category]
     @Query private var learnedKeywords: [LearnedKeyword]
+    @Query private var expenses: [Expense]
 
     @State private var yachtName = ""
     @State private var captainName = ""
@@ -216,6 +217,7 @@ struct OnboardingView: View {
             let result = try DatabaseExportService.shared.importDatabase(
                 from: url,
                 modelContext: modelContext,
+                existingExpenses: Array(expenses),
                 existingCategories: categories,
                 existingKeywords: Array(learnedKeywords),
                 yachtSettings: settings.first
@@ -247,5 +249,5 @@ struct OnboardingView: View {
 
 #Preview {
     OnboardingView()
-        .modelContainer(for: [YachtSettings.self, Category.self, LearnedKeyword.self])
+        .modelContainer(for: [YachtSettings.self, Category.self, LearnedKeyword.self, Expense.self])
 }
