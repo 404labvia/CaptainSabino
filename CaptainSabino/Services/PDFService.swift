@@ -64,12 +64,43 @@ class PDFService {
     // MARK: - Singleton
 
     static let shared = PDFService()
-    private init() {}
 
-    // MARK: - Reports Directory
+    /// Flag per indicare se iCloud è disponibile
+    private(set) var isICloudAvailable = false
 
-    /// Cartella dedicata per i report PDF
-    private var reportsDirectory: URL? {
+    private init() {
+        // Verifica disponibilità iCloud e migra se necessario
+        checkICloudAvailability()
+        migrateLocalPDFsToICloud()
+    }
+
+    // MARK: - iCloud Drive Support
+
+    /// Identificatore container iCloud (usa il bundle ID con tildes)
+    /// Per bundle ID "it.404lab.CaptainSabino" → "iCloud~it~404lab~CaptainSabino"
+    private var iCloudContainerIdentifier: String {
+        "iCloud.it.404lab.CaptainSabino"
+    }
+
+    /// Cartella iCloud Drive per i report
+    private var iCloudReportsDirectory: URL? {
+        guard let iCloudURL = FileManager.default.url(forUbiquityContainerIdentifier: iCloudContainerIdentifier) else {
+            return nil
+        }
+
+        let documentsURL = iCloudURL.appendingPathComponent("Documents")
+        let reportsURL = documentsURL.appendingPathComponent("Reports")
+
+        // Crea la cartella se non esiste
+        if !FileManager.default.fileExists(atPath: reportsURL.path) {
+            try? FileManager.default.createDirectory(at: reportsURL, withIntermediateDirectories: true)
+        }
+
+        return reportsURL
+    }
+
+    /// Cartella locale per i report PDF (fallback)
+    private var localReportsDirectory: URL? {
         guard let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
             return nil
         }
@@ -83,14 +114,100 @@ class PDFService {
         return reportsPath
     }
 
+    /// Cartella report attiva (iCloud se disponibile, altrimenti locale)
+    private var reportsDirectory: URL? {
+        if isICloudAvailable, let iCloudDir = iCloudReportsDirectory {
+            return iCloudDir
+        }
+        return localReportsDirectory
+    }
+
+    /// Verifica disponibilità iCloud Drive
+    private func checkICloudAvailability() {
+        if FileManager.default.ubiquityIdentityToken != nil {
+            // iCloud account disponibile
+            if let _ = FileManager.default.url(forUbiquityContainerIdentifier: iCloudContainerIdentifier) {
+                isICloudAvailable = true
+                print("✅ iCloud Drive disponibile per i report PDF")
+            } else {
+                isICloudAvailable = false
+                print("⚠️ iCloud container non configurato")
+            }
+        } else {
+            isICloudAvailable = false
+            print("⚠️ iCloud non disponibile - utilizzo storage locale")
+        }
+    }
+
+    /// Migra i PDF locali su iCloud Drive (se disponibile)
+    private func migrateLocalPDFsToICloud() {
+        guard isICloudAvailable,
+              let localDir = localReportsDirectory,
+              let iCloudDir = iCloudReportsDirectory else {
+            return
+        }
+
+        DispatchQueue.global(qos: .background).async {
+            do {
+                let localFiles = try FileManager.default.contentsOfDirectory(at: localDir, includingPropertiesForKeys: nil)
+                let pdfFiles = localFiles.filter { $0.pathExtension.lowercased() == "pdf" }
+
+                for localPDF in pdfFiles {
+                    let iCloudDestination = iCloudDir.appendingPathComponent(localPDF.lastPathComponent)
+
+                    // Sposta solo se non esiste già su iCloud
+                    if !FileManager.default.fileExists(atPath: iCloudDestination.path) {
+                        try FileManager.default.copyItem(at: localPDF, to: iCloudDestination)
+                        print("✅ Migrato su iCloud: \(localPDF.lastPathComponent)")
+
+                        // Rimuovi il file locale dopo la migrazione
+                        try FileManager.default.removeItem(at: localPDF)
+                    }
+                }
+            } catch {
+                print("⚠️ Errore migrazione PDF su iCloud: \(error)")
+            }
+        }
+    }
+
     // MARK: - Report Management
 
-    /// Ottiene tutti i report salvati
+    /// Ottiene tutti i report salvati (da iCloud e locale, deduplicati)
     func getSavedReports() -> [ReportInfo] {
-        guard let reportsDir = reportsDirectory else { return [] }
+        var allReports: [ReportInfo] = []
+        var seenFileNames: Set<String> = []
 
+        // Prima cerca su iCloud (priorità)
+        if isICloudAvailable, let iCloudDir = iCloudReportsDirectory {
+            let iCloudReports = loadReports(from: iCloudDir)
+            for report in iCloudReports {
+                let fileName = report.url.lastPathComponent
+                if !seenFileNames.contains(fileName) {
+                    allReports.append(report)
+                    seenFileNames.insert(fileName)
+                }
+            }
+        }
+
+        // Poi cerca localmente (per report non ancora migrati)
+        if let localDir = localReportsDirectory {
+            let localReports = loadReports(from: localDir)
+            for report in localReports {
+                let fileName = report.url.lastPathComponent
+                if !seenFileNames.contains(fileName) {
+                    allReports.append(report)
+                    seenFileNames.insert(fileName)
+                }
+            }
+        }
+
+        return allReports.sorted { $0.month > $1.month }
+    }
+
+    /// Carica i report da una cartella specifica
+    private func loadReports(from directory: URL) -> [ReportInfo] {
         do {
-            let files = try FileManager.default.contentsOfDirectory(at: reportsDir, includingPropertiesForKeys: [.creationDateKey])
+            let files = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.creationDateKey])
             return files
                 .filter { $0.pathExtension.lowercased() == "pdf" }
                 .compactMap { url -> ReportInfo? in
@@ -103,9 +220,8 @@ class PDFService {
                     }
                     return ReportInfo(url: url, month: date)
                 }
-                .sorted { $0.month > $1.month } // Più recenti prima
         } catch {
-            print("❌ Error loading reports: \(error)")
+            print("❌ Error loading reports from \(directory.path): \(error)")
             return []
         }
     }

@@ -11,8 +11,9 @@ CaptainSabino è un'applicazione SwiftUI con SwiftData per tracciare le spese de
 - **Framework**: SwiftUI + SwiftData
 - **Target**: iPhone only, iOS 17.6+
 - **OCR**: Claude Vision API (Anthropic)
-- **Persistenza**: SwiftData (modelli locali)
+- **Persistenza**: SwiftData + CloudKit (sync automatico iCloud)
 - **PDF**: UIGraphicsPDFRenderer con grafici a torta
+- **Cloud Storage**: iCloud Drive per PDF reports
 
 ## Struttura Progetto
 
@@ -101,7 +102,8 @@ Categorie predefinite: Fuel, Food, Maintenance, Crew, Supplies, Transport, Moori
 - Applicato in: Dashboard, Liste spese, Report PDF
 
 ### Report PDF
-- Salvati in `Documents/Reports/`
+- Salvati in **iCloud Drive** se disponibile, altrimenti `Documents/Reports/`
+- Migrazione automatica da locale a iCloud all'avvio
 - Includono grafico a torta per categorie
 - **Colonna Type** nella tabella dettagli (mostra C/R/I)
 - **Legenda header su due colonne**: Yacht/Captain (sinistra), Entry Types C/R/I (destra)
@@ -109,6 +111,12 @@ Categorie predefinite: Fuel, Food, Maintenance, Crew, Supplies, Transport, Moori
 - **Click su card apre PDF** (QuickLook)
 - **Menu opzioni**: solo Delete
 - Ordinati per data più recente
+
+### iCloud Sync
+- **Dati (SwiftData)**: Sincronizzazione automatica tramite CloudKit
+- **PDF Reports**: Salvati su iCloud Drive con migrazione automatica
+- **Container iCloud**: `iCloud.it.404lab.CaptainSabino`
+- **Fallback locale**: Se iCloud non disponibile, usa storage locale
 
 ### Rilevamento Duplicati
 - Controllo automatico: stesso importo + stessa data
@@ -177,6 +185,34 @@ xcodebuild -scheme CaptainSabino -destination 'platform=iOS Simulator,name=iPhon
 xcodebuild clean -scheme CaptainSabino
 ```
 
+## Configurazione Xcode per iCloud
+
+Per abilitare iCloud sync, configurare in Xcode:
+
+### 1. Capabilities
+- **iCloud** → Abilita CloudKit e iCloud Documents
+- **CloudKit Container**: `iCloud.it.404lab.CaptainSabino`
+
+### 2. Entitlements
+```xml
+<key>com.apple.developer.icloud-services</key>
+<array>
+    <string>CloudDocuments</string>
+    <string>CloudKit</string>
+</array>
+<key>com.apple.developer.icloud-container-identifiers</key>
+<array>
+    <string>iCloud.it.404lab.CaptainSabino</string>
+</array>
+<key>com.apple.developer.ubiquity-container-identifiers</key>
+<array>
+    <string>iCloud.it.404lab.CaptainSabino</string>
+</array>
+```
+
+### 3. Background Modes
+- Abilita "Remote notifications" per sync CloudKit in background
+
 ## Note Sviluppo
 
 - I report generati da Dashboard/Expenses/Reports usano lo stesso `GenerateReportSheet`
@@ -186,3 +222,5 @@ xcodebuild clean -scheme CaptainSabino
 - PDFService usa `formatCurrency()` per formato italiano nei report
 - **Reset badge notifica** all'apertura app (`UNUserNotificationCenter.current().setBadgeCount(0)`)
 - **Tab bar oro**: configurata con `UITabBarAppearance` in `configureTabBarAppearance()`
+- **CloudKit fallback**: Se CloudKit fallisce, l'app usa storage locale
+- **PDF migrazione**: I PDF locali vengono migrati automaticamente su iCloud all'avvio
