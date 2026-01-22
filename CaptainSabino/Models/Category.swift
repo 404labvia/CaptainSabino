@@ -12,24 +12,24 @@ import SwiftUI
 @Model
 final class Category {
     // MARK: - Properties
-    
+
     /// ID univoco della categoria
-    var id: UUID
-    
+    var id: UUID = UUID()
+
     /// Nome della categoria (es: "Food", "Fuel")
-    var name: String
-    
+    var name: String = ""
+
     /// Icona SF Symbol per la categoria (es: "fork.knife")
-    var icon: String
-    
+    var icon: String = "questionmark"
+
     /// Colore in formato HEX (es: "#FF6B6B")
-    var colorHex: String
-    
+    var colorHex: String = "#999999"
+
     /// Indica se è una categoria predefinita o custom
-    var isPredefined: Bool
-    
+    var isPredefined: Bool = true
+
     /// Data di creazione
-    var createdAt: Date
+    var createdAt: Date = Date()
     
     /// Relazione inversa con le spese
     @Relationship(deleteRule: .nullify, inverse: \Expense.category)

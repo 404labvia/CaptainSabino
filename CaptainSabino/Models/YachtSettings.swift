@@ -13,19 +13,19 @@ final class YachtSettings {
     // MARK: - Properties
 
     /// ID univoco (ci sarà solo 1 istanza)
-    var id: UUID
+    var id: UUID = UUID()
 
     /// Nome dello yacht
-    var yachtName: String
+    var yachtName: String = ""
 
     /// Nome del comandante
-    var captainName: String
+    var captainName: String = ""
 
     /// Data di creazione/configurazione iniziale
-    var createdAt: Date
+    var createdAt: Date = Date()
 
     /// Data ultimo aggiornamento
-    var updatedAt: Date
+    var updatedAt: Date = Date()
 
     /// Chiave API Claude (richiesta per OCR scontrini)
     var claudeAPIKey: String?

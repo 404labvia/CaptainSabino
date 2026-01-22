@@ -44,19 +44,19 @@ final class Expense {
     // MARK: - Properties
 
     /// ID univoco della spesa (generato automaticamente)
-    var id: UUID
+    var id: UUID = UUID()
 
     /// Importo della spesa in Euro
-    var amount: Double
+    var amount: Double = 0.0
 
     /// Categoria della spesa (relazione con Category)
     var category: Category?
 
     /// Data della spesa
-    var date: Date
+    var date: Date = Date()
 
     /// Note opzionali per la spesa (es: "Rifornimento Porto di Monaco")
-    var notes: String
+    var notes: String = ""
 
     /// Percorso relativo dell'immagine dello scontrino (se presente)
     var receiptImagePath: String?
@@ -75,7 +75,7 @@ final class Expense {
     }
 
     /// Data di creazione del record
-    var createdAt: Date
+    var createdAt: Date = Date()
     
     // MARK: - Initializer
 

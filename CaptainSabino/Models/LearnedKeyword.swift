@@ -12,19 +12,19 @@ import SwiftData
 @Model
 class LearnedKeyword {
     /// Nome della categoria associata (es. "Supermarket", "Food")
-    var categoryName: String
+    var categoryName: String = ""
 
     /// Keyword appresa (es. "TIRRENICA", "PORTOFINO")
-    var keyword: String
+    var keyword: String = ""
 
     /// Data in cui è stata appresa
-    var learnedDate: Date
+    var learnedDate: Date = Date()
 
     /// Contatore di quante volte è stata trovata e confermata
-    var usageCount: Int
+    var usageCount: Int = 1
 
     /// Data dell'ultimo utilizzo (per cleanup automatico)
-    var lastUsedDate: Date
+    var lastUsedDate: Date = Date()
 
     init(
         categoryName: String,

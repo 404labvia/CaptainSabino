@@ -11,27 +11,27 @@ import SwiftData
 @Model
 final class Reminder {
     // MARK: - Properties
-    
+
     /// ID univoco del promemoria
-    var id: UUID
-    
+    var id: UUID = UUID()
+
     /// Titolo del promemoria (es: "Insurance Renewal")
-    var title: String
-    
+    var title: String = ""
+
     /// Descrizione/note opzionali
-    var notes: String
-    
+    var notes: String = ""
+
     /// Data e ora della scadenza
-    var dueDate: Date
-    
+    var dueDate: Date = Date()
+
     /// Indica se il promemoria è stato completato
-    var isCompleted: Bool
-    
+    var isCompleted: Bool = false
+
     /// ID della notifica locale iOS (per cancellare/modificare)
     var notificationId: String?
-    
+
     /// Data di creazione
-    var createdAt: Date
+    var createdAt: Date = Date()
     
     // MARK: - Initializer
     
