@@ -7,6 +7,8 @@
 
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
+import UIKit
 
 struct SettingsView: View {
     // MARK: - Properties
@@ -14,9 +16,28 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var settings: [YachtSettings]
     @Query private var learnedKeywords: [LearnedKeyword]
+    @Query private var expenses: [Expense]
+    @Query private var categories: [Category]
 
     @State private var showingEditSettings = false
     @State private var showingResetConfirmation = false
+    @State private var showAPISection = false
+    @State private var tapCount = 0
+
+    // Export/Import states
+    @State private var showingExportShare = false
+    @State private var exportFileURL: URL?
+    @State private var showingImportPicker = false
+    @State private var showingImportResult = false
+    @State private var importResultMessage = ""
+    @State private var showingImportError = false
+    @State private var importErrorMessage = ""
+    @State private var isExporting = false
+
+    // Yacht/Captain update confirmation
+    @State private var showingUpdateConfirmation = false
+    @State private var pendingYachtName = ""
+    @State private var pendingCaptainName = ""
 
     private var yachtSettings: YachtSettings? {
         settings.first
@@ -28,10 +49,34 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 yachtInfoSection
-                receiptScanningSection
+                dataManagementSection
+                if showAPISection {
+                    receiptScanningSection
+                }
                 appInfoSection
             }
             .navigationTitle("Settings")
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("Settings")
+                        .font(.headline)
+                        .onTapGesture {
+                            tapCount += 1
+                            if tapCount >= 5 {
+                                withAnimation {
+                                    showAPISection.toggle()
+                                }
+                                tapCount = 0
+                            }
+                            // Reset counter dopo 2 secondi se non si raggiunge il target
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                if tapCount < 5 {
+                                    tapCount = 0
+                                }
+                            }
+                        }
+                }
+            }
             .sheet(isPresented: $showingEditSettings) {
                 EditSettingsView()
             }
@@ -47,6 +92,37 @@ struct SettingsView: View {
             } message: {
                 Text("This will delete all learned keywords. The system will start learning again from scratch.")
             }
+            .sheet(isPresented: $showingExportShare) {
+                if let url = exportFileURL {
+                    ShareSheet(items: [url])
+                }
+            }
+            .sheet(isPresented: $showingImportPicker) {
+                DocumentPicker(
+                    contentTypes: [.json],
+                    onPick: { url in
+                        importDatabase(from: url)
+                    }
+                )
+            }
+            .alert("Import Completed", isPresented: $showingImportResult) {
+                Button("OK") { }
+            } message: {
+                Text(importResultMessage)
+            }
+            .alert("Import Error", isPresented: $showingImportError) {
+                Button("OK") { }
+            } message: {
+                Text(importErrorMessage)
+            }
+            .alert("Update Yacht Info?", isPresented: $showingUpdateConfirmation) {
+                Button("Update") {
+                    updateYachtInfo()
+                }
+                Button("Keep Current", role: .cancel) { }
+            } message: {
+                Text("Do you want to update Yacht name and Captain name from the backup?")
+            }
         }
     }
 
@@ -56,6 +132,76 @@ struct SettingsView: View {
         for keyword in learnedKeywords {
             modelContext.delete(keyword)
         }
+        try? modelContext.save()
+    }
+
+    private func exportDatabase() {
+        isExporting = true
+
+        do {
+            let url = try DatabaseExportService.shared.exportDatabase(
+                expenses: expenses,
+                categories: categories,
+                learnedKeywords: Array(learnedKeywords),
+                yachtName: yachtSettings?.yachtName ?? "Unknown",
+                captainName: yachtSettings?.captainName ?? "Unknown",
+                claudeAPIKey: yachtSettings?.claudeAPIKey
+            )
+            exportFileURL = url
+            showingExportShare = true
+        } catch {
+            importErrorMessage = "Export failed: \(error.localizedDescription)"
+            showingImportError = true
+        }
+
+        isExporting = false
+    }
+
+    private func importDatabase(from url: URL) {
+        do {
+            // Ottieni accesso sicuro al file
+            guard url.startAccessingSecurityScopedResource() else {
+                throw ImportError.invalidFormat
+            }
+            defer { url.stopAccessingSecurityScopedResource() }
+
+            let result = try DatabaseExportService.shared.importDatabase(
+                from: url,
+                modelContext: modelContext,
+                existingExpenses: Array(expenses),
+                existingCategories: categories,
+                existingKeywords: Array(learnedKeywords),
+                yachtSettings: yachtSettings
+            )
+
+            importResultMessage = result.summary
+            showingImportResult = true
+
+            // Controlla se yacht/captain name sono diversi
+            if let currentSettings = yachtSettings {
+                let yachtDiffers = currentSettings.yachtName != result.yachtName
+                let captainDiffers = currentSettings.captainName != result.captainName
+
+                if yachtDiffers || captainDiffers {
+                    pendingYachtName = result.yachtName
+                    pendingCaptainName = result.captainName
+                    // Mostra conferma dopo l'alert di import completato
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        showingUpdateConfirmation = true
+                    }
+                }
+            }
+        } catch {
+            importErrorMessage = error.localizedDescription
+            showingImportError = true
+        }
+    }
+
+    private func updateYachtInfo() {
+        guard let currentSettings = yachtSettings else { return }
+        currentSettings.yachtName = pendingYachtName
+        currentSettings.captainName = pendingCaptainName
+        currentSettings.touch()
         try? modelContext.save()
     }
 
@@ -81,6 +227,53 @@ struct SettingsView: View {
                 Text("No settings configured")
                     .foregroundStyle(.secondary)
             }
+        }
+    }
+
+    private var dataManagementSection: some View {
+        Section {
+            // Export
+            Button {
+                exportDatabase()
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "square.and.arrow.up")
+                        .foregroundStyle(Color.gold)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Export Database")
+                            .foregroundStyle(.primary)
+                        Text("\(expenses.count) expenses")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if isExporting {
+                        ProgressView()
+                    }
+                }
+            }
+            .disabled(expenses.isEmpty || isExporting)
+
+            // Import
+            Button {
+                showingImportPicker = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "square.and.arrow.down")
+                        .foregroundStyle(Color.gold)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Import Database")
+                            .foregroundStyle(.primary)
+                        Text("From backup file")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        } header: {
+            Text("Data Management")
+        } footer: {
+            Text("Export creates a backup file you can share via AirDrop, email, or save to Files. Import merges data without duplicating existing expenses.")
         }
     }
 
@@ -322,9 +515,43 @@ struct ClaudeAPISettingsView: View {
     }
 }
 
+// MARK: - DocumentPicker (UIKit wrapper per selezione file)
+
+struct DocumentPicker: UIViewControllerRepresentable {
+    let contentTypes: [UTType]
+    let onPick: (URL) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onPick: onPick)
+    }
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: contentTypes)
+        picker.delegate = context.coordinator
+        picker.allowsMultipleSelection = false
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+
+    class Coordinator: NSObject, UIDocumentPickerDelegate {
+        let onPick: (URL) -> Void
+
+        init(onPick: @escaping (URL) -> Void) {
+            self.onPick = onPick
+        }
+
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            if let url = urls.first {
+                onPick(url)
+            }
+        }
+    }
+}
+
 // MARK: - Preview
 
 #Preview {
     SettingsView()
-        .modelContainer(for: [YachtSettings.self])
+        .modelContainer(for: [YachtSettings.self, Expense.self, Category.self])
 }

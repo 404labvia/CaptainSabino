@@ -32,13 +32,14 @@ CaptainSabino/
 │   ├── AddExpenseView.swift  # Aggiunta spesa (design moderno con ZStack)
 │   ├── EditExpenseView.swift # Modifica spesa
 │   ├── ReportListView.swift  # Lista report PDF salvati
-│   ├── SettingsView.swift    # Impostazioni (solo yacht name e API key)
+│   ├── SettingsView.swift    # Impostazioni yacht, API key, Export/Import Database
 │   ├── OnboardingView.swift  # Setup iniziale (semplificato)
 │   ├── CameraReceiptView.swift # Scansione scontrini
 │   └── InvoicePDFPickerView.swift # Picker per upload fatture PDF
 ├── Services/
 │   ├── ReceiptOCRService.swift # OCR scontrini + fatture (Claude Vision)
 │   ├── PDFService.swift        # Report PDF con colonna Type
+│   ├── DatabaseExportService.swift # Export/Import database JSON
 │   ├── NotificationService.swift # Notifiche locali
 │   └── EmailService.swift      # Invio email
 ├── Theme/
@@ -119,10 +120,18 @@ Categorie predefinite: Fuel, Food, Maintenance, Crew, Supplies, Transport, Moori
 - **Fallback locale**: Se iCloud non disponibile, usa storage locale
 
 ### Rilevamento Duplicati
-- Controllo automatico: stesso importo + stessa data
+- Controllo automatico: stesso importo + stessa data + stesso merchant
 - **Badge rosso** "Possible Duplicate" sopra il bottone Save
 - Non bloccante: permette comunque il salvataggio
 - Attivo sia per input manuale che OCR
+- Usato anche durante import database per evitare duplicati
+
+### Export/Import Database
+- **Export**: Crea file JSON con tutte le spese, categorie, keywords e API key
+- **Import**: Merge dati senza duplicare (controllo su amount + date + merchantName)
+- **API Key inclusa**: Trasferita automaticamente con il backup
+- **Utile per**: Trasferire dati tra dispositivi con Apple ID diversi
+- **Nota**: Report Management rimosso (PDF condivisibili direttamente da Reports tab)
 
 ### Navigazione
 - Tab 0: Dashboard (grafici mensili)
