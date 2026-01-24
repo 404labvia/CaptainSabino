@@ -59,10 +59,10 @@ struct ContentView: View {
                             }
                             .tag(1)
 
-                        // Placeholder for center button
+                        // Placeholder for center button (invisible tab item)
                         Color.clear
                             .tabItem {
-                                Label("", systemImage: "")
+                                Text(" ")
                             }
                             .tag(2)
 
