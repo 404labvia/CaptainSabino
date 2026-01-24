@@ -200,8 +200,28 @@ final class DatabaseExportService {
         var importedCategories = 0
         var importedKeywords = 0
 
-        // Crea set di ID spese esistenti per controllo duplicati
-        let existingExpenseIDs = Set(existingExpenses.map { $0.id.uuidString })
+        // Funzione per creare chiave univoca per una spesa (amount + date + merchantName)
+        func expenseKey(amount: Double, date: Date, merchantName: String) -> String {
+            let dayTimestamp = Int(date.timeIntervalSince1970 / 86400) // Giorno senza ora
+            return "\(amount)|\(dayTimestamp)|\(merchantName.lowercased().trimmingCharacters(in: .whitespaces))"
+        }
+
+        // Conta occorrenze di ogni chiave nel database esistente
+        var existingExpenseCounts: [String: Int] = [:]
+        for expense in existingExpenses {
+            let key = expenseKey(amount: expense.amount, date: expense.date, merchantName: expense.merchantName)
+            existingExpenseCounts[key, default: 0] += 1
+        }
+
+        // Conta occorrenze di ogni chiave nel file di import
+        var importExpenseCounts: [String: Int] = [:]
+        for exportedExpense in importedData.expenses {
+            let key = expenseKey(amount: exportedExpense.amount, date: exportedExpense.date, merchantName: exportedExpense.merchantName)
+            importExpenseCounts[key, default: 0] += 1
+        }
+
+        // Traccia quante spese per ogni chiave sono già state importate in questa sessione
+        var importedPerKey: [String: Int] = [:]
 
         // Crea dizionario categorie per nome (per matching)
         var categoryByName: [String: Category] = [:]
@@ -224,10 +244,21 @@ final class DatabaseExportService {
             }
         }
 
-        // Importa spese (skip se ID già esistente)
+        // Importa spese (skip se già presente nel DB con stesso amount+date+merchant)
         for exportedExpense in importedData.expenses {
-            // Skip duplicati per ID
-            if existingExpenseIDs.contains(exportedExpense.id) {
+            let key = expenseKey(amount: exportedExpense.amount, date: exportedExpense.date, merchantName: exportedExpense.merchantName)
+
+            // Quante ne esistono già nel DB
+            let existingCount = existingExpenseCounts[key] ?? 0
+            // Quante ne abbiamo già importate in questa sessione
+            let alreadyImported = importedPerKey[key] ?? 0
+            // Totale già presenti (DB + importate questa sessione)
+            let totalPresent = existingCount + alreadyImported
+            // Quante ne servono dal file
+            let neededFromFile = importExpenseCounts[key] ?? 0
+
+            // Se abbiamo già abbastanza occorrenze, skip
+            if totalPresent >= neededFromFile {
                 skippedExpenses += 1
                 continue
             }
@@ -247,6 +278,7 @@ final class DatabaseExportService {
 
             modelContext.insert(newExpense)
             importedExpensesCount += 1
+            importedPerKey[key, default: 0] += 1
         }
 
         // Importa keywords apprese (se non esistono già)
