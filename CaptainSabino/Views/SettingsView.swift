@@ -54,6 +54,9 @@ struct SettingsView: View {
                     receiptScanningSection
                 }
                 appInfoSection
+                #if targetEnvironment(simulator)
+                demoDataSection
+                #endif
             }
             .navigationTitle("Settings")
             .toolbar {
@@ -357,6 +360,54 @@ struct SettingsView: View {
             }
         }
     }
+
+    #if targetEnvironment(simulator)
+    private var demoDataSection: some View {
+        Section {
+            Button {
+                DemoDataGenerator.shared.generateDemoExpenses(
+                    modelContext: modelContext,
+                    categories: categories
+                )
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "film")
+                        .foregroundStyle(.orange)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Generate Demo Data")
+                            .foregroundStyle(.primary)
+                        Text("40 expenses for screenshots")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            Button(role: .destructive) {
+                DemoDataGenerator.shared.clearAllExpenses(
+                    modelContext: modelContext,
+                    expenses: expenses
+                )
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "trash")
+                        .foregroundStyle(.red)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Clear All Expenses")
+                            .foregroundStyle(.red)
+                        Text("Remove all demo data")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        } header: {
+            Text("Demo Data (Simulator Only)")
+        } footer: {
+            Text("These options only appear on Simulator for creating screenshots and videos.")
+        }
+    }
+    #endif
 }
 
 // MARK: - Edit Settings View
