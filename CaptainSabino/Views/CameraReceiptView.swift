@@ -21,69 +21,184 @@ struct CameraReceiptView: View {
 
     var body: some View {
         ZStack {
-            // Camera Preview (background)
-            if camera.isAuthorized {
-                CameraPreview(session: camera.session)
-                    .ignoresSafeArea()
+            #if targetEnvironment(simulator)
+            // SIMULATOR: Mostra immagine demo invece della fotocamera
+            simulatorCameraView
+            #else
+            // DEVICE: Fotocamera reale
+            realCameraView
+            #endif
+        }
+        .background(Color.black)
+        .onAppear {
+            #if !targetEnvironment(simulator)
+            camera.checkPermissionsAndStart()
+            #endif
+        }
+        .onDisappear {
+            #if !targetEnvironment(simulator)
+            camera.stopSession()
+            #endif
+        }
+    }
 
-                // Overlay guide per posizionamento scontrino
-                ReceiptGuideOverlay()
+    // MARK: - Simulator Camera View (Demo)
 
-                // Controls
-                VStack {
-                    // Top bar
-                    HStack {
-                        Button {
-                            dismiss()
-                        } label: {
-                            Image(systemName: "xmark")
-                                .font(.title2)
-                                .foregroundColor(.white)
-                                .padding()
-                                .background(
-                                    Circle()
-                                        .fill(.black.opacity(0.5))
-                                )
-                        }
-                        .padding()
+    #if targetEnvironment(simulator)
+    private var simulatorCameraView: some View {
+        ZStack {
+            // Background nero
+            Color.black.ignoresSafeArea()
 
-                        Spacer()
+            // Immagine demo dello scontrino
+            if let demoImage = UIImage(named: "DemoReceipt") {
+                Image(uiImage: demoImage)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 100)
+            } else {
+                // Fallback se immagine non trovata
+                VStack(spacing: 16) {
+                    Image(systemName: "doc.text.image")
+                        .font(.system(size: 80))
+                        .foregroundColor(.gray)
+                    Text("Add 'DemoReceipt' to Assets")
+                        .foregroundColor(.gray)
+                }
+            }
+
+            // Overlay guide (stesso del reale)
+            ReceiptGuideOverlay()
+
+            // Controls (identici al reale)
+            VStack {
+                // Top bar
+                HStack {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.title2)
+                            .foregroundColor(.white)
+                            .padding()
+                            .background(
+                                Circle()
+                                    .fill(.black.opacity(0.5))
+                            )
                     }
+                    .padding()
 
                     Spacer()
+                }
 
-                    // Bottom controls
-                    VStack(spacing: 12) {
-                        Text("Center receipt in frame")
-                            .font(.subheadline)
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(
-                                Capsule()
-                                    .fill(.black.opacity(0.6))
-                            )
+                Spacer()
 
-                        // Shutter button
-                        Button {
-                            camera.capturePhoto { image in
-                                if let image = image {
-                                    onCapture(image)
-                                    dismiss()
+                // Bottom controls
+                VStack(spacing: 12) {
+                    Text("Center receipt in frame")
+                        .font(.subheadline)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule()
+                                .fill(.black.opacity(0.6))
+                        )
+
+                    // Shutter button - usa immagine demo
+                    Button {
+                        if let demoImage = UIImage(named: "DemoReceipt") {
+                            onCapture(demoImage)
+                            dismiss()
+                        }
+                    } label: {
+                        ZStack {
+                            Circle()
+                                .fill(.white)
+                                .frame(width: 70, height: 70)
+
+                            Circle()
+                                .stroke(.white, lineWidth: 3)
+                                .frame(width: 85, height: 85)
+                        }
+                    }
+                    .padding(.bottom, 30)
+                }
+            }
+        }
+    }
+    #endif
+
+    // MARK: - Real Camera View (Device)
+
+    private var realCameraView: some View {
+        Group {
+            if camera.isAuthorized {
+                ZStack {
+                    CameraPreview(session: camera.session)
+                        .ignoresSafeArea()
+
+                    // Overlay guide per posizionamento scontrino
+                    ReceiptGuideOverlay()
+
+                    // Controls
+                    VStack {
+                        // Top bar
+                        HStack {
+                            Button {
+                                dismiss()
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.title2)
+                                    .foregroundColor(.white)
+                                    .padding()
+                                    .background(
+                                        Circle()
+                                            .fill(.black.opacity(0.5))
+                                    )
+                            }
+                            .padding()
+
+                            Spacer()
+                        }
+
+                        Spacer()
+
+                        // Bottom controls
+                        VStack(spacing: 12) {
+                            Text("Center receipt in frame")
+                                .font(.subheadline)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(
+                                    Capsule()
+                                        .fill(.black.opacity(0.6))
+                                )
+
+                            // Shutter button
+                            Button {
+                                camera.capturePhoto { image in
+                                    if let image = image {
+                                        onCapture(image)
+                                        dismiss()
+                                    }
+                                }
+                            } label: {
+                                ZStack {
+                                    Circle()
+                                        .fill(.white)
+                                        .frame(width: 70, height: 70)
+
+                                    Circle()
+                                        .stroke(.white, lineWidth: 3)
+                                        .frame(width: 85, height: 85)
                                 }
                             }
-                        } label: {
-                            ZStack {
-                                Circle()
-                                    .fill(.white)
-                                    .frame(width: 70, height: 70)
-
-                                Circle()
-                                    .stroke(.white, lineWidth: 3)
-                                    .frame(width: 85, height: 85)
-                            }
+                            .padding(.bottom, 30)
                         }
-                        .padding(.bottom, 30)
                     }
                 }
 
@@ -98,13 +213,6 @@ struct CameraReceiptView: View {
                 ProgressView("Starting camera...")
                     .foregroundColor(.white)
             }
-        }
-        .background(Color.black)
-        .onAppear {
-            camera.checkPermissionsAndStart()
-        }
-        .onDisappear {
-            camera.stopSession()
         }
     }
 }
