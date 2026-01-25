@@ -69,9 +69,6 @@ struct CameraReceiptView: View {
                 }
             }
 
-            // Overlay guide (stesso del reale)
-            ReceiptGuideOverlay()
-
             // Controls (identici al reale)
             VStack {
                 // Top bar
@@ -97,16 +94,6 @@ struct CameraReceiptView: View {
 
                 // Bottom controls
                 VStack(spacing: 12) {
-                    Text("Center receipt in frame")
-                        .font(.subheadline)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(
-                            Capsule()
-                                .fill(.black.opacity(0.6))
-                        )
-
                     // Shutter button - usa immagine demo
                     Button {
                         if let demoImage = UIImage(named: "DemoReceipt") {
@@ -140,9 +127,6 @@ struct CameraReceiptView: View {
                     CameraPreview(session: camera.session)
                         .ignoresSafeArea()
 
-                    // Overlay guide per posizionamento scontrino
-                    ReceiptGuideOverlay()
-
                     // Controls
                     VStack {
                         // Top bar
@@ -168,16 +152,6 @@ struct CameraReceiptView: View {
 
                         // Bottom controls
                         VStack(spacing: 12) {
-                            Text("Center receipt in frame")
-                                .font(.subheadline)
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(
-                                    Capsule()
-                                        .fill(.black.opacity(0.6))
-                                )
-
                             // Shutter button
                             Button {
                                 camera.capturePhoto { image in
@@ -248,31 +222,6 @@ struct CameraPreview: UIViewRepresentable {
 
     class Coordinator {
         var previewLayer: AVCaptureVideoPreviewLayer?
-    }
-}
-
-// MARK: - Receipt Guide Overlay
-
-struct ReceiptGuideOverlay: View {
-    var body: some View {
-        VStack {
-            Spacer()
-                .frame(height: 120)
-
-            // Cornice guida per scontrino
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(
-                    style: StrokeStyle(
-                        lineWidth: 3,
-                        dash: [10, 5]
-                    )
-                )
-                .foregroundColor(.green.opacity(0.8))
-                .frame(width: 280, height: 420)
-                .shadow(color: .green.opacity(0.3), radius: 8)
-
-            Spacer()
-        }
     }
 }
 
