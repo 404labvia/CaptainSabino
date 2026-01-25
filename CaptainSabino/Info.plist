@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSCameraUsageDescription</key>
+	<string>CaptainSabino needs camera access to scan receipts and invoices for automatic expense entry.</string>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>CaptainSabino needs notification permission to remind you of important deadlines and maintenance schedules.</string>
 	<key>UIBackgroundModes</key>
