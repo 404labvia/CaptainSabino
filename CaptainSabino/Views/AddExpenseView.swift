@@ -276,15 +276,15 @@ struct AddExpenseView: View {
 
     /// Detected Category Section - Mostra la categoria rilevata da OCR
     private var detectedCategorySection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(spacing: 12) {
             Text("DETECTED CATEGORY")
                 .font(.caption)
                 .fontWeight(.semibold)
                 .foregroundStyle(.secondary)
 
             if let detected = prefilledCategory {
-                HStack(spacing: 12) {
-                    // Icona categoria
+                VStack(spacing: 8) {
+                    // Icona categoria centrata
                     ZStack {
                         Circle()
                             .fill(detected.color)
@@ -295,16 +295,15 @@ struct AddExpenseView: View {
                             .foregroundStyle(.white)
                     }
 
-                    // Nome categoria
+                    // Nome categoria centrato sotto
                     Text(detected.name)
-                        .font(.title3)
+                        .font(.caption2)
                         .fontWeight(.semibold)
                         .foregroundStyle(detected.color)
-
-                    Spacer()
                 }
             }
         }
+        .frame(maxWidth: .infinity)
         .padding()
         .background(Color(.secondarySystemGroupedBackground))
         .cornerRadius(12)
@@ -355,10 +354,14 @@ struct AddExpenseView: View {
                         .padding(.horizontal, 4)
                     }
                     .onAppear {
-                        // Scroll alla data selezionata (0 = data riferimento, al centro)
-                        let selectedDayOffset = Calendar.current.dateComponents([.day], from: date, to: scrollReferenceDate).day ?? 0
-                        if selectedDayOffset >= -45 && selectedDayOffset <= 45 {
-                            proxy.scrollTo(selectedDayOffset, anchor: .center)
+                        // Scroll alla data selezionata con delay per assicurare rendering completo
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            let selectedDayOffset = Calendar.current.dateComponents([.day], from: date, to: scrollReferenceDate).day ?? 0
+                            if selectedDayOffset >= -45 && selectedDayOffset <= 45 {
+                                withAnimation(.easeOut(duration: 0.3)) {
+                                    proxy.scrollTo(selectedDayOffset, anchor: .center)
+                                }
+                            }
                         }
                     }
                 }
