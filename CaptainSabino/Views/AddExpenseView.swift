@@ -58,6 +58,11 @@ struct AddExpenseView: View {
                         // Date Section (con scroll orizzontale)
                         dateSection
 
+                        // Detected Category Section (solo per OCR)
+                        if prefilledCategory != nil {
+                            detectedCategorySection
+                        }
+
                         // Category Section
                         categorySection
 
@@ -269,6 +274,42 @@ struct AddExpenseView: View {
         prefilledDate ?? Date()
     }
 
+    /// Detected Category Section - Mostra la categoria rilevata da OCR
+    private var detectedCategorySection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("DETECTED CATEGORY")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(.secondary)
+
+            if let detected = prefilledCategory {
+                HStack(spacing: 12) {
+                    // Icona categoria
+                    ZStack {
+                        Circle()
+                            .fill(detected.color)
+                            .frame(width: 50, height: 50)
+
+                        Image(systemName: detected.icon)
+                            .font(.system(size: 24))
+                            .foregroundStyle(.white)
+                    }
+
+                    // Nome categoria
+                    Text(detected.name)
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(detected.color)
+
+                    Spacer()
+                }
+            }
+        }
+        .padding()
+        .background(Color(.secondarySystemGroupedBackground))
+        .cornerRadius(12)
+    }
+
     /// Date Section - Calendario fisso + scroll orizzontale 30 giorni
     private var dateSection: some View {
         VStack(spacing: 12) {
@@ -296,28 +337,28 @@ struct AddExpenseView: View {
                         .cornerRadius(8)
                 }
 
-                // Scroll orizzontale 30 giorni (data riferimento a destra)
+                // Scroll orizzontale 90 giorni (45 indietro + 45 avanti dalla data riferimento)
                 ScrollViewReader { proxy in
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
-                            ForEach(0..<30, id: \.self) { daysAgo in
-                                let buttonDate = Calendar.current.date(byAdding: .day, value: -daysAgo, to: scrollReferenceDate) ?? scrollReferenceDate
+                            ForEach(-45..<46, id: \.self) { dayOffset in
+                                let buttonDate = Calendar.current.date(byAdding: .day, value: -dayOffset, to: scrollReferenceDate) ?? scrollReferenceDate
                                 QuickDateButton(
                                     date: buttonDate,
                                     isSelected: isSameDay(date, buttonDate)
                                 ) {
                                     date = buttonDate
                                 }
-                                .id(daysAgo)
+                                .id(dayOffset)
                             }
                         }
                         .padding(.horizontal, 4)
                     }
                     .onAppear {
-                        // Scroll alla data selezionata
-                        let selectedDaysAgo = Calendar.current.dateComponents([.day], from: date, to: scrollReferenceDate).day ?? 0
-                        if selectedDaysAgo >= 0 && selectedDaysAgo < 30 {
-                            proxy.scrollTo(selectedDaysAgo, anchor: .trailing)
+                        // Scroll alla data selezionata (0 = data riferimento, al centro)
+                        let selectedDayOffset = Calendar.current.dateComponents([.day], from: date, to: scrollReferenceDate).day ?? 0
+                        if selectedDayOffset >= -45 && selectedDayOffset <= 45 {
+                            proxy.scrollTo(selectedDayOffset, anchor: .center)
                         }
                     }
                 }
