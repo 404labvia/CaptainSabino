@@ -25,6 +25,8 @@ struct ReceiptData {
     var categoryName: String?
     var fullText: String
     var confidence: ConfidenceLevel
+    /// Prima pagina del PDF (solo per invoice), usata per salvare l'anteprima
+    var previewImage: UIImage?
 
     var hasAmount: Bool { amount != nil }
     var hasCategory: Bool { categoryName != nil }
@@ -174,6 +176,9 @@ class ReceiptOCRService {
 
         print("📄 Extracted \(pdfImages.count) page(s) from PDF")
 
+        // Salva la prima pagina come anteprima (per mostrare l'icona camera nella lista)
+        let previewImage = pdfImages.first
+
         // Chiama Claude Vision API con tutte le pagine
         let claudeResponse = await callClaudeVisionAPIForInvoice(images: pdfImages, apiKey: apiKey)
 
@@ -211,7 +216,8 @@ class ReceiptOCRService {
             merchantName: claudeResponse.merchant,
             categoryName: finalCategory,
             fullText: claudeResponse.merchant ?? "",
-            confidence: confidence
+            confidence: confidence,
+            previewImage: previewImage
         )
     }
 

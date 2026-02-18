@@ -502,7 +502,11 @@ struct AddExpenseView: View {
         // Salva immagine scontrino/fattura in locale se presente e abilitato
         if let image = receiptImage,
            settings.first?.saveReceiptImages != false {
-            newExpense.receiptImagePath = try? ImageStorageService.shared.saveImage(image, expenseID: newExpense.id)
+            newExpense.receiptImagePath = try? ImageStorageService.shared.saveImage(
+                image,
+                expenseID: newExpense.id,
+                entryType: entryType
+            )
         }
 
         modelContext.insert(newExpense)

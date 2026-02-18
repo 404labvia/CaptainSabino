@@ -49,6 +49,7 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 yachtInfoSection
+                categoriesSection
                 dataManagementSection
                 storageSection
                 if showAPISection {
@@ -276,6 +277,34 @@ struct SettingsView: View {
         } footer: {
             Text("Export creates a backup file you can share via AirDrop, email, or save to Files. Import merges data without duplicating existing expenses.")
         }
+    }
+
+    private var categoriesSection: some View {
+        Section("Categories") {
+            NavigationLink {
+                ManageCategoriesView()
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "square.grid.2x2")
+                        .foregroundStyle(Color.gold)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Manage Categories")
+                            .foregroundStyle(.primary)
+                        Text("\(customCategoriesCount) custom, \(predefinedCategoriesCount) predefined")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+    }
+
+    private var customCategoriesCount: Int {
+        categories.filter { !$0.isPredefined }.count
+    }
+
+    private var predefinedCategoriesCount: Int {
+        categories.filter { $0.isPredefined }.count
     }
 
     private var storageSection: some View {
