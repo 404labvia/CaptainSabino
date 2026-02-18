@@ -302,7 +302,7 @@ struct ExpenseListView: View {
             let expense = expensesInSection[index]
             // Elimina immagine associata se presente
             if let path = expense.receiptImagePath {
-                ImageStorageService.shared.deleteImage(filename: path)
+                ImageStorageService.shared.deleteImage(filename: path, entryType: expense.entryType)
             }
             modelContext.delete(expense)
         }
@@ -430,16 +430,16 @@ struct ExpenseRowView: View {
     var onReceiptTap: (() -> Void)?
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             // Category Icon
             if let category = expense.category {
                 ZStack {
                     Circle()
                         .fill(category.color.opacity(0.2))
-                        .frame(width: 44, height: 44)
+                        .frame(width: 36, height: 36)
 
                     Image(systemName: category.icon)
-                        .font(.body)
+                        .font(.footnote)
                         .foregroundStyle(category.color)
                 }
             }
@@ -463,7 +463,7 @@ struct ExpenseRowView: View {
 
             // Icona camera/scontrino (solo se immagine disponibile)
             if let path = expense.receiptImagePath,
-               ImageStorageService.shared.loadImage(filename: path) != nil {
+               ImageStorageService.shared.loadImage(filename: path, entryType: expense.entryType) != nil {
                 Button {
                     onReceiptTap?()
                 } label: {
@@ -513,19 +513,21 @@ struct ReceiptImageViewer: View {
 
     private var image: UIImage? {
         guard let path = expense.receiptImagePath else { return nil }
-        return ImageStorageService.shared.loadImage(filename: path)
+        return ImageStorageService.shared.loadImage(filename: path, entryType: expense.entryType)
     }
 
     var body: some View {
         NavigationStack {
             Group {
                 if let image {
-                    ScrollView([.horizontal, .vertical]) {
+                    GeometryReader { geo in
                         Image(uiImage: image)
                             .resizable()
                             .scaledToFit()
-                            .frame(maxWidth: .infinity)
+                            .frame(width: geo.size.width, height: geo.size.height)
                     }
+                    .ignoresSafeArea(edges: .bottom)
+                    .background(Color.black)
                 } else {
                     VStack(spacing: 16) {
                         Image(systemName: "photo.slash")
