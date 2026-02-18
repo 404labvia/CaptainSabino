@@ -9,6 +9,16 @@ import SwiftUI
 import SwiftData
 import QuickLook
 
+// MARK: - Date Filter Enum
+
+enum DateFilter: String, CaseIterable {
+    case all = "All"
+    case today = "Today"
+    case last7 = "Last 7 days"
+    case last30 = "Last 30 days"
+    case thisMonth = "This month"
+}
+
 struct ExpenseListView: View {
     // MARK: - Properties
 
@@ -18,6 +28,7 @@ struct ExpenseListView: View {
     @Query private var settings: [YachtSettings]
 
     @State private var searchText = ""
+    @State private var dateFilter: DateFilter = .all
     @State private var showingAddExpense = false
     @State private var showingGenerateSheet = false
     @State private var reportSelectedMonth = Calendar.current.component(.month, from: Date())
@@ -28,9 +39,10 @@ struct ExpenseListView: View {
     @State private var showingToast = false
     @State private var toastMessage = ""
     @State private var quickLookURL: URL?
+    @State private var selectedReceiptExpense: Expense?
 
     // MARK: - Body
-    
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -49,6 +61,11 @@ struct ExpenseListView: View {
                     .padding(.horizontal)
                     .padding(.top, 10)
 
+                // Search bar + date filter chips
+                searchAndFilterSection
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+
                 // Content
                 if filteredExpenses.isEmpty {
                     emptyStateView
@@ -57,7 +74,6 @@ struct ExpenseListView: View {
                 }
             }
             .navigationBarHidden(true)
-            .searchable(text: $searchText, prompt: "Search expenses...")
             .sheet(isPresented: $showingAddExpense) {
                 AddExpenseView()
             }
@@ -76,6 +92,9 @@ struct ExpenseListView: View {
                     totalAmount: reportTotalAmount
                 )
             }
+            .sheet(item: $selectedReceiptExpense) { expense in
+                ReceiptImageViewer(expense: expense)
+            }
             .alert("Error", isPresented: $showingAlert) {
                 Button("OK") { }
             } message: {
@@ -91,23 +110,41 @@ struct ExpenseListView: View {
             .quickLookPreview($quickLookURL)
         }
     }
-    
+
     // MARK: - Computed Properties
-    
+
     private var filteredExpenses: [Expense] {
         var result = expenses
 
-        // Filter by search text
+        // Filtro testo: merchant + categoria
         if !searchText.isEmpty {
             result = result.filter { expense in
-                expense.notes.localizedCaseInsensitiveContains(searchText) ||
+                expense.merchantName.localizedCaseInsensitiveContains(searchText) ||
                 expense.category?.name.localizedCaseInsensitiveContains(searchText) ?? false
             }
         }
 
+        // Filtro data
+        let now = Date()
+        let cal = Calendar.current
+        switch dateFilter {
+        case .all:
+            break
+        case .today:
+            result = result.filter { cal.isDateInToday($0.date) }
+        case .last7:
+            let cutoff = cal.date(byAdding: .day, value: -7, to: now)!
+            result = result.filter { $0.date >= cutoff }
+        case .last30:
+            let cutoff = cal.date(byAdding: .day, value: -30, to: now)!
+            result = result.filter { $0.date >= cutoff }
+        case .thisMonth:
+            result = result.filter { cal.isDate($0.date, equalTo: now, toGranularity: .month) }
+        }
+
         return result
     }
-    
+
     // MARK: - View Components
 
     private var quickActionsSection: some View {
@@ -152,6 +189,50 @@ struct ExpenseListView: View {
         }
     }
 
+    private var searchAndFilterSection: some View {
+        VStack(spacing: 8) {
+            // Search bar inline
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+                    .font(.subheadline)
+
+                TextField("Search merchant or category...", text: $searchText)
+                    .font(.subheadline)
+
+                if !searchText.isEmpty {
+                    Button {
+                        searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(Color(.secondarySystemGroupedBackground))
+            .cornerRadius(10)
+
+            // Date filter chips
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(DateFilter.allCases, id: \.self) { filter in
+                        FilterChip(
+                            title: filter.rawValue,
+                            isSelected: dateFilter == filter
+                        ) {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                dateFilter = filter
+                            }
+                        }
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+    }
+
     private var expenseListView: some View {
         List {
             ForEach(sortedDays, id: \.self) { day in
@@ -160,7 +241,9 @@ struct ExpenseListView: View {
                         NavigationLink {
                             EditExpenseView(expense: expense)
                         } label: {
-                            ExpenseRowView(expense: expense)
+                            ExpenseRowView(expense: expense) {
+                                selectedReceiptExpense = expense
+                            }
                         }
                     }
                     .onDelete { indexSet in
@@ -170,35 +253,39 @@ struct ExpenseListView: View {
             }
         }
     }
-    
+
     private var emptyStateView: some View {
         VStack(spacing: 20) {
             Image(systemName: "tray")
                 .font(.system(size: 70))
                 .foregroundStyle(.gray)
 
-            Text("No Expenses Yet")
+            Text(searchText.isEmpty && dateFilter == .all ? "No Expenses Yet" : "No Results")
                 .font(.title2)
                 .fontWeight(.semibold)
 
-            Text("Tap + to add your first expense")
+            Text(searchText.isEmpty && dateFilter == .all
+                 ? "Tap + to add your first expense"
+                 : "Try a different search or filter")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
-            Button {
-                showingAddExpense.toggle()
-            } label: {
-                Label("Add Expense", systemImage: "plus.circle.fill")
-                    .font(.headline)
-                    .padding()
-                    .background(Color.navy)
-                    .foregroundStyle(Color.cream)
-                    .cornerRadius(12)
+            if searchText.isEmpty && dateFilter == .all {
+                Button {
+                    showingAddExpense.toggle()
+                } label: {
+                    Label("Add Expense", systemImage: "plus.circle.fill")
+                        .font(.headline)
+                        .padding()
+                        .background(Color.navy)
+                        .foregroundStyle(Color.cream)
+                        .cornerRadius(12)
+                }
             }
         }
         .padding()
     }
-    
+
     private var expensesGroupedByDay: [Date: [Expense]] {
         Dictionary(grouping: filteredExpenses) { $0.dayKey }
     }
@@ -212,7 +299,12 @@ struct ExpenseListView: View {
     private func deleteExpenses(at offsets: IndexSet, on day: Date) {
         let expensesInSection = expensesGroupedByDay[day] ?? []
         for index in offsets {
-            modelContext.delete(expensesInSection[index])
+            let expense = expensesInSection[index]
+            // Elimina immagine associata se presente
+            if let path = expense.receiptImagePath {
+                ImageStorageService.shared.deleteImage(filename: path)
+            }
+            modelContext.delete(expense)
         }
     }
 
@@ -304,44 +396,86 @@ struct ExpenseListView: View {
     }
 }
 
+// MARK: - Filter Chip
+
+struct FilterChip: View {
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.caption)
+                .fontWeight(isSelected ? .semibold : .regular)
+                .foregroundStyle(isSelected ? Color.cream : .primary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(
+                    Capsule()
+                        .fill(isSelected ? Color.navy : Color(.secondarySystemGroupedBackground))
+                )
+                .overlay(
+                    Capsule()
+                        .strokeBorder(isSelected ? Color.clear : Color(.separator), lineWidth: 1)
+                )
+        }
+    }
+}
+
 // MARK: - Expense Row View
 
 struct ExpenseRowView: View {
     let expense: Expense
-    
+    var onReceiptTap: (() -> Void)?
+
     var body: some View {
-        HStack(spacing: 15) {
+        HStack(spacing: 12) {
             // Category Icon
             if let category = expense.category {
                 ZStack {
                     Circle()
                         .fill(category.color.opacity(0.2))
-                        .frame(width: 50, height: 50)
-                    
+                        .frame(width: 44, height: 44)
+
                     Image(systemName: category.icon)
-                        .font(.title3)
+                        .font(.body)
                         .foregroundStyle(category.color)
                 }
             }
-            
+
             // Details
-            VStack(alignment: .leading, spacing: 4) {
-                Text(expense.category?.name ?? "Unknown")
+            VStack(alignment: .leading, spacing: 3) {
+                // Riga 1: merchant name (o categoria se merchant vuoto)
+                Text(expense.merchantName.isEmpty ? (expense.category?.name ?? "Unknown") : expense.merchantName)
                     .font(.headline)
-                
-                if !expense.notes.isEmpty {
-                    Text(expense.notes)
-                        .font(.subheadline)
+                    .lineLimit(1)
+
+                // Riga 2: categoria
+                if let categoryName = expense.category?.name {
+                    Text(categoryName)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
                 }
-                
-                Text(expense.formattedDate)
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
             }
-            
+
             Spacer()
+
+            // Icona camera/scontrino (solo se immagine disponibile)
+            if let path = expense.receiptImagePath,
+               ImageStorageService.shared.loadImage(filename: path) != nil {
+                Button {
+                    onReceiptTap?()
+                } label: {
+                    Image(systemName: "camera.fill")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 28, height: 28)
+                        .background(Color(.tertiarySystemGroupedBackground))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+            }
 
             // Entry Type Badge
             EntryTypeBadge(entryType: expense.entryType)
@@ -368,6 +502,49 @@ struct EntryTypeBadge: View {
             .fontWeight(.bold)
             .foregroundStyle(entryType.color)
             .frame(width: 20, height: 20)
+    }
+}
+
+// MARK: - Receipt Image Viewer
+
+struct ReceiptImageViewer: View {
+    let expense: Expense
+    @Environment(\.dismiss) private var dismiss
+
+    private var image: UIImage? {
+        guard let path = expense.receiptImagePath else { return nil }
+        return ImageStorageService.shared.loadImage(filename: path)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if let image {
+                    ScrollView([.horizontal, .vertical]) {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: .infinity)
+                    }
+                } else {
+                    VStack(spacing: 16) {
+                        Image(systemName: "photo.slash")
+                            .font(.system(size: 60))
+                            .foregroundStyle(.secondary)
+                        Text("Image not available")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .navigationTitle(expense.merchantName.isEmpty ? (expense.category?.name ?? "Receipt") : expense.merchantName)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Close") { dismiss() }
+                        .foregroundStyle(Color.navy)
+                }
+            }
+        }
     }
 }
 

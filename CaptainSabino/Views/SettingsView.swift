@@ -50,6 +50,7 @@ struct SettingsView: View {
             List {
                 yachtInfoSection
                 dataManagementSection
+                storageSection
                 if showAPISection {
                     receiptScanningSection
                 }
@@ -275,6 +276,47 @@ struct SettingsView: View {
         } footer: {
             Text("Export creates a backup file you can share via AirDrop, email, or save to Files. Import merges data without duplicating existing expenses.")
         }
+    }
+
+    private var storageSection: some View {
+        Section {
+            if let currentSettings = yachtSettings {
+                Toggle(isOn: Binding(
+                    get: { currentSettings.saveReceiptImages },
+                    set: {
+                        currentSettings.saveReceiptImages = $0
+                        try? modelContext.save()
+                    }
+                )) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "photo.on.rectangle")
+                            .foregroundStyle(Color.gold)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Save Receipt Images")
+                                .foregroundStyle(.primary)
+                            Text(storageUsedText)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+        } header: {
+            Text("Storage")
+        } footer: {
+            Text("When enabled, photos of scanned receipts and uploaded invoices are saved locally on this device for later reference.")
+        }
+    }
+
+    private var storageUsedText: String {
+        let bytes = ImageStorageService.shared.totalStorageUsed()
+        if bytes == 0 { return "No images saved" }
+        let mb = Double(bytes) / 1_048_576
+        if mb < 1 {
+            let kb = Double(bytes) / 1024
+            return String(format: "%.0f KB used", kb)
+        }
+        return String(format: "%.1f MB used", mb)
     }
 
     private var receiptScanningSection: some View {
