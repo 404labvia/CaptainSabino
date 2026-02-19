@@ -442,7 +442,7 @@ struct ExpenseRowView: View {
     }
 
     var body: some View {
-        // Layout: [Icon 36] [Merchant+Cat ∞] [Amount min70] [TechCol 20]
+        // Layout: [Icon 36] [Merchant+Cat ∞] [TechCol 20] [Amount min70]
         // La VStack merchant prende tutto lo spazio residuo → tronca solo se necessario
         HStack(spacing: 10) {
             // Icona categoria (larghezza fissa 36)
@@ -471,14 +471,6 @@ struct ExpenseRowView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            // Importo (larghezza minima fissa)
-            Text(expense.formattedAmount)
-                .font(.subheadline)
-                .fontWeight(.semibold)
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-                .frame(minWidth: 70, alignment: .trailing)
-
             // Colonna tecnica: tipo (C/R/I) + camera impilati verticalmente
             VStack(spacing: 3) {
                 EntryTypeBadge(entryType: expense.entryType)
@@ -494,6 +486,14 @@ struct ExpenseRowView: View {
                 }
             }
             .frame(width: 20)
+
+            // Importo (larghezza minima fissa)
+            Text(expense.formattedAmount)
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .frame(minWidth: 70, alignment: .trailing)
         }
         .padding(.vertical, 4)
     }
@@ -525,122 +525,124 @@ struct ReceiptImageViewer: View {
     }
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if let image {
-                    ZoomableScrollView(image: image)
-                        .ignoresSafeArea(edges: .bottom)
-                        .background(Color.black)
-                } else {
-                    VStack(spacing: 16) {
-                        Image(systemName: "photo.slash")
-                            .font(.system(size: 60))
-                            .foregroundStyle(.secondary)
-                        Text("Image not available")
-                            .foregroundStyle(.secondary)
-                    }
+        ZStack(alignment: .topTrailing) {
+            Color.black.ignoresSafeArea()
+            if let image {
+                ZoomableImageView(image: image)
+                    .ignoresSafeArea()
+            } else {
+                VStack(spacing: 16) {
+                    Image(systemName: "photo.slash")
+                        .font(.system(size: 60))
+                        .foregroundStyle(.secondary)
+                    Text("Image not available")
+                        .foregroundStyle(.secondary)
                 }
             }
-            .navigationTitle(expense.merchantName.isEmpty ? (expense.category?.name ?? "Receipt") : expense.merchantName)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { dismiss() } label: {
-                        Text("Close")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(Color.navy)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 6)
-                            .background(.regularMaterial)
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
+            // Close button sovrapposto in alto a destra
+            Button { dismiss() } label: {
+                Text("Close")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Color.navy)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
+                    .background(.regularMaterial)
+                    .clipShape(Capsule())
             }
+            .padding(.top, 60)
+            .padding(.trailing, 16)
         }
     }
 }
 
-// MARK: - Zoomable Scroll View (UIScrollView nativo)
+// MARK: - Zoomable Image View (UIViewControllerRepresentable)
+// Usa UIViewController.viewDidLayoutSubviews() per garantire bounds corretti prima di settare il frame
 
-struct ZoomableScrollView: UIViewRepresentable {
+struct ZoomableImageView: UIViewControllerRepresentable {
     let image: UIImage
 
-    func makeCoordinator() -> Coordinator { Coordinator() }
+    func makeUIViewController(context: Context) -> ZoomViewController {
+        ZoomViewController(image: image)
+    }
 
-    func makeUIView(context: Context) -> UIScrollView {
-        let scrollView = UIScrollView()
+    func updateUIViewController(_ vc: ZoomViewController, context: Context) {}
+}
+
+final class ZoomViewController: UIViewController, UIScrollViewDelegate {
+    private let image: UIImage
+    private let scrollView = UIScrollView()
+    private let imageView: UIImageView
+
+    init(image: UIImage) {
+        self.image = image
+        self.imageView = UIImageView(image: image)
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .black
+
+        scrollView.backgroundColor = .black
+        scrollView.delegate = self
         scrollView.minimumZoomScale = 1.0
         scrollView.maximumZoomScale = 5.0
         scrollView.showsHorizontalScrollIndicator = false
         scrollView.showsVerticalScrollIndicator = false
-        scrollView.delegate = context.coordinator
         scrollView.bouncesZoom = true
-        scrollView.backgroundColor = .black
-        // Evita che UIKit aggiusti il contentInset per la safe area, che causa schermo nero
+        // Evita che UIKit modifichi il contentInset per la safe area
         scrollView.contentInsetAdjustmentBehavior = .never
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(scrollView)
 
-        let imageView = UIImageView(image: image)
+        NSLayoutConstraint.activate([
+            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+
         imageView.contentMode = .scaleAspectFit
         imageView.isUserInteractionEnabled = true
         scrollView.addSubview(imageView)
-        context.coordinator.imageView = imageView
-        context.coordinator.scrollView = scrollView
 
-        let doubleTap = UITapGestureRecognizer(
-            target: context.coordinator,
-            action: #selector(Coordinator.handleDoubleTap(_:))
-        )
+        let doubleTap = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap))
         doubleTap.numberOfTapsRequired = 2
         scrollView.addGestureRecognizer(doubleTap)
-
-        return scrollView
     }
 
-    func updateUIView(_ scrollView: UIScrollView, context: Context) {
-        guard let imageView = context.coordinator.imageView,
-              scrollView.bounds != .zero else { return }
-        // Aggiorna frame solo se non ancora impostato o se i bounds cambiano (es. rotazione)
-        guard imageView.frame.size != scrollView.bounds.size else { return }
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        // viewDidLayoutSubviews è garantito dal lifecycle UIKit: i bounds sono definitivi qui
+        let bounds = scrollView.bounds
+        guard bounds != .zero, imageView.frame.size != bounds.size else { return }
         scrollView.setZoomScale(1.0, animated: false)
-        imageView.frame = scrollView.bounds
-        scrollView.contentSize = scrollView.bounds.size
+        imageView.frame = bounds
+        scrollView.contentSize = bounds.size
     }
 
-    class Coordinator: NSObject, UIScrollViewDelegate {
-        weak var imageView: UIImageView?
-        weak var scrollView: UIScrollView?
+    func viewForZooming(in scrollView: UIScrollView) -> UIView? { imageView }
 
-        func viewForZooming(in scrollView: UIScrollView) -> UIView? { imageView }
+    func scrollViewDidZoom(_ scrollView: UIScrollView) {
+        // Centra l'immagine quando è più piccola del viewport
+        let offsetX = max((scrollView.bounds.width - scrollView.contentSize.width) / 2, 0)
+        let offsetY = max((scrollView.bounds.height - scrollView.contentSize.height) / 2, 0)
+        imageView.center = CGPoint(
+            x: scrollView.contentSize.width / 2 + offsetX,
+            y: scrollView.contentSize.height / 2 + offsetY
+        )
+    }
 
-        func scrollViewDidZoom(_ scrollView: UIScrollView) {
-            guard let imageView else { return }
-            // Centra l'immagine quando è più piccola del frame dello scroll view
-            let offsetX = max((scrollView.bounds.width - scrollView.contentSize.width) / 2, 0)
-            let offsetY = max((scrollView.bounds.height - scrollView.contentSize.height) / 2, 0)
-            imageView.center = CGPoint(
-                x: scrollView.contentSize.width / 2 + offsetX,
-                y: scrollView.contentSize.height / 2 + offsetY
-            )
-        }
-
-        @objc func handleDoubleTap(_ gesture: UITapGestureRecognizer) {
-            guard let scrollView else { return }
-            if scrollView.zoomScale > 1.0 {
-                // Zoom out al minimo
-                scrollView.setZoomScale(1.0, animated: true)
-            } else {
-                // Zoom in centrato sul punto toccato
-                let point = gesture.location(in: imageView)
-                let zoomRect = CGRect(
-                    x: point.x - 50,
-                    y: point.y - 50,
-                    width: 100,
-                    height: 100
-                )
-                scrollView.zoom(to: zoomRect, animated: true)
-            }
+    @objc private func handleDoubleTap(_ gesture: UITapGestureRecognizer) {
+        if scrollView.zoomScale > 1.0 {
+            scrollView.setZoomScale(1.0, animated: true)
+        } else {
+            let point = gesture.location(in: imageView)
+            let zoomRect = CGRect(x: point.x - 50, y: point.y - 50, width: 100, height: 100)
+            scrollView.zoom(to: zoomRect, animated: true)
         }
     }
 }
