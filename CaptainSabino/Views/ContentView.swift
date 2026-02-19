@@ -236,6 +236,9 @@ struct ContentView: View {
             // Configure tab bar appearance
             configureTabBarAppearance()
         }
+        .onOpenURL { url in
+            handleIncomingPDF(url)
+        }
     }
 
     // MARK: - Computed Properties
@@ -439,6 +442,29 @@ struct ContentView: View {
 
         // Cleanup temp file
         try? FileManager.default.removeItem(at: pdfURL)
+    }
+
+    /// Gestisce un PDF ricevuto da Share Sheet o "Open in CaptainSabino" da Files/Mail
+    private func handleIncomingPDF(_ url: URL) {
+        guard url.pathExtension.lowercased() == "pdf" else { return }
+        // Non processare se l'onboarding non è ancora completato
+        guard !needsOnboarding else { return }
+
+        guard let apiKey = settings.first?.claudeAPIKey, !apiKey.isEmpty else {
+            selectedTab = 4   // apri Settings per configurare la chiave
+            showingAPIKeyMissingAlert = true
+            return
+        }
+
+        isFromScanReceipt = false
+        currentEntryType = .invoice
+        isProcessingReceipt = true
+        processingMessage = "Analyzing invoice..."
+        selectedTab = 1   // porta l'utente sulla tab Expenses
+
+        Task {
+            await processInvoiceWithOCR(pdfURL: url)
+        }
     }
 
     private func configureTabBarAppearance() {
