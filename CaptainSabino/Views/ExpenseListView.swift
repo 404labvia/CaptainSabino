@@ -188,36 +188,83 @@ struct ExpenseListView: View {
     }
 
     private var searchAndFilterSection: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(.secondary)
-                .font(.subheadline)
+        VStack(alignment: .leading, spacing: 6) {
+            // Search bar
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+                    .font(.subheadline)
 
-            TextField("Search merchant or category...", text: $searchText)
-                .font(.subheadline)
+                TextField("Search merchant or category...", text: $searchText)
+                    .font(.subheadline)
 
-            if !searchText.isEmpty {
+                if !searchText.isEmpty {
+                    Button {
+                        searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                // Bottone calendario → apre DateFilterSheet; diventa blu quando filtro attivo
                 Button {
-                    searchText = ""
+                    showingDateSheet = true
                 } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
+                    Image(systemName: customDateFrom != nil ? "calendar.badge.checkmark" : "calendar")
+                        .font(.subheadline)
+                        .foregroundStyle(customDateFrom != nil ? Color.royalBlue : .secondary)
                 }
             }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(Color(.secondarySystemGroupedBackground))
+            .cornerRadius(10)
 
-            // Bottone calendario → apre DateFilterSheet; diventa blu quando filtro attivo
-            Button {
-                showingDateSheet = true
-            } label: {
-                Image(systemName: customDateFrom != nil ? "calendar.badge.checkmark" : "calendar")
-                    .font(.subheadline)
-                    .foregroundStyle(customDateFrom != nil ? Color.royalBlue : .secondary)
+            // Chip dinamica: visibile solo quando filtro data attivo
+            if customDateFrom != nil {
+                HStack(spacing: 5) {
+                    Image(systemName: "calendar")
+                        .font(.caption2)
+                        .foregroundStyle(Color.royalBlue)
+                    Text(filterChipText)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                    Button {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                            customDateFrom = nil
+                            customDateTo = nil
+                        }
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(.ultraThinMaterial)
+                .clipShape(Capsule())
+                .transition(.asymmetric(
+                    insertion: .scale(scale: 0.85).combined(with: .opacity),
+                    removal: .scale(scale: 0.85).combined(with: .opacity)
+                ))
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(Color(.secondarySystemGroupedBackground))
-        .cornerRadius(10)
+        .animation(.spring(response: 0.25, dampingFraction: 0.75), value: customDateFrom != nil)
+    }
+
+    private var filterChipText: String {
+        guard let from = customDateFrom else { return "" }
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        f.timeStyle = .none
+        if let to = customDateTo {
+            let lastDay = Calendar.current.date(byAdding: .day, value: -1, to: to) ?? from
+            return "\(f.string(from: from)) – \(f.string(from: lastDay))"
+        }
+        return f.string(from: from)
     }
 
     private var expenseListView: some View {
@@ -389,63 +436,64 @@ struct ExpenseRowView: View {
     let expense: Expense
     var onReceiptTap: (() -> Void)?
 
+    private var hasReceipt: Bool {
+        guard let path = expense.receiptImagePath else { return false }
+        return ImageStorageService.shared.loadImage(filename: path, entryType: expense.entryType) != nil
+    }
+
     var body: some View {
+        // Layout: [Icon 36] [Merchant+Cat ∞] [Amount min70] [TechCol 20]
+        // La VStack merchant prende tutto lo spazio residuo → tronca solo se necessario
         HStack(spacing: 10) {
-            // Category Icon
+            // Icona categoria (larghezza fissa 36)
             if let category = expense.category {
                 ZStack {
                     Circle()
                         .fill(category.color.opacity(0.2))
                         .frame(width: 36, height: 36)
-
                     Image(systemName: category.icon)
                         .font(.footnote)
                         .foregroundStyle(category.color)
                 }
             }
 
-            // Details
-            VStack(alignment: .leading, spacing: 3) {
-                // Riga 1: merchant name (o categoria se merchant vuoto)
+            // Merchant + categoria — occupa tutto lo spazio disponibile
+            VStack(alignment: .leading, spacing: 2) {
                 Text(expense.merchantName.isEmpty ? (expense.category?.name ?? "Unknown") : expense.merchantName)
                     .font(.headline)
                     .lineLimit(1)
-
-                // Riga 2: categoria
                 if let categoryName = expense.category?.name {
                     Text(categoryName)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-            Spacer()
-
-            // Icona camera/scontrino (solo se immagine disponibile)
-            if let path = expense.receiptImagePath,
-               ImageStorageService.shared.loadImage(filename: path, entryType: expense.entryType) != nil {
-                Button {
-                    onReceiptTap?()
-                } label: {
-                    Image(systemName: "camera.fill")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .frame(width: 28, height: 28)
-                        .background(Color(.tertiarySystemGroupedBackground))
-                        .clipShape(Circle())
-                }
-                .buttonStyle(.plain)
-            }
-
-            // Entry Type Badge
-            EntryTypeBadge(entryType: expense.entryType)
-
-            // Amount
+            // Importo (larghezza minima fissa)
             Text(expense.formattedAmount)
-                .font(.body)
+                .font(.subheadline)
                 .fontWeight(.semibold)
                 .foregroundStyle(.primary)
-                .frame(minWidth: 80, alignment: .trailing)
+                .lineLimit(1)
+                .frame(minWidth: 70, alignment: .trailing)
+
+            // Colonna tecnica: tipo (C/R/I) + camera impilati verticalmente
+            VStack(spacing: 3) {
+                EntryTypeBadge(entryType: expense.entryType)
+                if hasReceipt {
+                    Button {
+                        onReceiptTap?()
+                    } label: {
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .frame(width: 20)
         }
         .padding(.vertical, 4)
     }
@@ -497,12 +545,17 @@ struct ReceiptImageViewer: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Close") { dismiss() }
-                        .foregroundStyle(Color.navy)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 6)
-                        .background(Color.white.opacity(0.9))
-                        .clipShape(Capsule())
+                    Button { dismiss() } label: {
+                        Text("Close")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(Color.navy)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 6)
+                            .background(.regularMaterial)
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -525,6 +578,8 @@ struct ZoomableScrollView: UIViewRepresentable {
         scrollView.delegate = context.coordinator
         scrollView.bouncesZoom = true
         scrollView.backgroundColor = .black
+        // Evita che UIKit aggiusti il contentInset per la safe area, che causa schermo nero
+        scrollView.contentInsetAdjustmentBehavior = .never
 
         let imageView = UIImageView(image: image)
         imageView.contentMode = .scaleAspectFit
@@ -544,7 +599,11 @@ struct ZoomableScrollView: UIViewRepresentable {
     }
 
     func updateUIView(_ scrollView: UIScrollView, context: Context) {
-        guard let imageView = context.coordinator.imageView else { return }
+        guard let imageView = context.coordinator.imageView,
+              scrollView.bounds != .zero else { return }
+        // Aggiorna frame solo se non ancora impostato o se i bounds cambiano (es. rotazione)
+        guard imageView.frame.size != scrollView.bounds.size else { return }
+        scrollView.setZoomScale(1.0, animated: false)
         imageView.frame = scrollView.bounds
         scrollView.contentSize = scrollView.bounds.size
     }

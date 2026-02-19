@@ -22,11 +22,11 @@ struct SettingsView: View {
     @State private var showingEditSettings = false
     @State private var showingResetConfirmation = false
 
-    // Accordion expansion state
+    // Accordion expansion state — solo Yacht Info espansa di default
     @State private var isYachtExpanded = true
-    @State private var isExpensesExpanded = true
-    @State private var isDataExpanded = true
-    @State private var isScanningExpanded = true
+    @State private var isCategoriesExpanded = false
+    @State private var isExpensesExpanded = false
+    @State private var isScanningExpanded = false
     @State private var isAboutExpanded = false
 
     // Export/Import states
@@ -60,17 +60,17 @@ struct SettingsView: View {
                         .fontWeight(.semibold)
                 }
 
+                DisclosureGroup(isExpanded: $isCategoriesExpanded) {
+                    categoriesContent
+                } label: {
+                    Label("Categories", systemImage: "square.grid.2x2")
+                        .fontWeight(.semibold)
+                }
+
                 DisclosureGroup(isExpanded: $isExpensesExpanded) {
                     expensesContent
                 } label: {
                     Label("Expenses", systemImage: "cart")
-                        .fontWeight(.semibold)
-                }
-
-                DisclosureGroup(isExpanded: $isDataExpanded) {
-                    dataContent
-                } label: {
-                    Label("Data", systemImage: "externaldrive")
                         .fontWeight(.semibold)
                 }
 
@@ -241,9 +241,9 @@ struct SettingsView: View {
         }
     }
 
-    // Expenses group content (Categorie + Storage)
+    // Categories group content
     @ViewBuilder
-    private var expensesContent: some View {
+    private var categoriesContent: some View {
         NavigationLink {
             ManageCategoriesView()
         } label: {
@@ -259,7 +259,11 @@ struct SettingsView: View {
                 }
             }
         }
+    }
 
+    // Expenses group content (solo Storage toggle)
+    @ViewBuilder
+    private var expensesContent: some View {
         if let currentSettings = yachtSettings {
             Toggle(isOn: Binding(
                 get: { currentSettings.saveReceiptImages },
@@ -302,9 +306,10 @@ struct SettingsView: View {
         return String(format: "%.1f MB used", mb)
     }
 
-    // Data group content (Export + Import)
+    // Receipt Scanning group content (include Data export/import + keywords)
     @ViewBuilder
-    private var dataContent: some View {
+    private var receiptScanningContent: some View {
+        // Export
         Button {
             exportDatabase()
         } label: {
@@ -326,6 +331,7 @@ struct SettingsView: View {
         }
         .disabled(expenses.isEmpty || isExporting)
 
+        // Import
         Button {
             showingImportPicker = true
         } label: {
@@ -341,11 +347,10 @@ struct SettingsView: View {
                 }
             }
         }
-    }
 
-    // Receipt Scanning group content
-    @ViewBuilder
-    private var receiptScanningContent: some View {
+        Divider()
+
+        // Learned keywords
         if learnedKeywords.isEmpty {
             Text("No learned keywords yet")
                 .foregroundStyle(.secondary)
