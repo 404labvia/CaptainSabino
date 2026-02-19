@@ -35,10 +35,13 @@ CaptainSabino/
 │   ├── SettingsView.swift    # Impostazioni (solo yacht name e API key)
 │   ├── OnboardingView.swift  # Setup iniziale (semplificato)
 │   ├── CameraReceiptView.swift # Scansione scontrini
-│   └── InvoicePDFPickerView.swift # Picker per upload fatture PDF
+│   ├── InvoicePDFPickerView.swift # Picker per upload fatture PDF
+│   ├── ManageCategoriesView.swift # Gestione categorie: CRUD custom + delete predefinite + MoveCategoryExpensesSheet
+│   └── AddEditCategoryView.swift  # Form crea/modifica categoria custom (nome, colore, icona SF Symbol)
 ├── Services/
 │   ├── ReceiptOCRService.swift # OCR scontrini + fatture (Claude Vision)
 │   ├── PDFService.swift        # Report PDF con colonna Type
+│   ├── ImageStorageService.swift  # Storage locale immagini scontrini (Documents/Receipts/ e Invoices/)
 │   ├── NotificationService.swift # Notifiche locali
 │   └── EmailService.swift      # Invio email
 ├── Theme/
@@ -68,6 +71,7 @@ CaptainSabino/
 - Usare `@State` per stato locale view
 - Usare `@Environment(\.modelContext)` per persistenza
 - Preferire computed properties per logica derivata
+- **`onChange`/`onAppear` race**: `onAppear` che setta stato triggera `onChange` → azioni indesiderate; fix: `@State private var didAppear = false`, guard `guard didAppear else { return }` nei `onChange`, `DispatchQueue.main.async { didAppear = true }` in fondo a `onAppear`
 
 ## Funzionalità Principali
 
@@ -76,6 +80,9 @@ CaptainSabino/
 - **Solo formato data europeo** (DD/MM/YYYY)
 - Sistema di learned keywords per migliorare riconoscimento categoria
 - **Flusso fotocamera continuo**: dopo salvataggio da scan, ritorna automaticamente alla fotocamera
+- **⚠️ Custom categories invisibili a Claude**: `validCategories` in `ReceiptOCRService` è hardcoded (9 categorie predefinite); Claude non suggerirà mai una categoria custom — arrivano solo via `LearnedKeyword`
+- **Keyword learning funziona con categorie custom**: `LearnedKeyword.categoryName` è una stringa libera; se l'utente salva una spesa con categoria custom + merchant, la keyword viene appresa e usata ai prossimi scan
+- **Priorità match**: keyword con `usageCount` maggiore ha precedenza sul suggerimento Claude
 
 ### Upload Fatture (PDF)
 - Supporta upload di file PDF tramite document picker
@@ -95,6 +102,26 @@ Badge visibile nella lista spese e colonna Type nel report PDF.
 ### Categorie Spese
 Categorie predefinite: Fuel, Food, Maintenance, Crew, Supplies, Transport, Mooring, Insurance, Communication, **Parking**, Other
 - Rimossi: Welder, Water Test
+- **CRUD custom**: Settings → Manage Categories (`ManageCategoriesView`) → crea/modifica/elimina categorie custom
+- **Delete predefinite**: abilitato; se categoria ha spese → `MoveCategoryExpensesSheet` (reassign + delete)
+- **`requestDelete(_:)`**: controlla `expenses?.count` → dialog diretto (0 spese) o sheet move (>0 spese)
+- **`moveAndDeleteCategory(_:to:)`**: itera `category.expenses`, setta `expense.category = target`, poi `modelContext.delete`
+
+### Storage Immagini Scontrini/Fatture
+- **Service**: `ImageStorageService.shared` (singleton)
+- **Directories**: `Documents/Receipts/` (scontrini) e `Documents/Invoices/` (fatture) — visibili in Files app
+- **Files app**: `UIFileSharingEnabled` + `LSSupportsOpeningDocumentsInPlace` già configurati in Info.plist
+- **Firma `saveImage`**: `saveImage(_ image:, date:, amount:, categoryName:, merchantName:, entryType:) throws -> String`
+- **Filename formato**: `yyyy-MM-dd_252,75€_Crew_Bar-da-Carlo.jpg` — separatore campi `_`, separatore parole nei nomi `-`, amount formato italiano con `€`
+- **Compressione**: max 200KB (204.800 bytes), qualità iterativa 0.75→0.05
+
+### Search & Filter (ExpenseListView)
+- **Search bar**: singola riga — magnifier + TextField + xmark + icona calendario; icona `calendar.badge.checkmark` blu se filtro attivo
+- **Nessuna chip row**: rimossa; filtro data solo via `DateFilterSheet`
+- **Stato filtro**: `customDateFrom: Date?` e `customDateTo: Date?` (nil = nessun filtro)
+  - Single day: `customDateFrom != nil && customDateTo == nil`
+  - Range: entrambi non-nil; `customDateTo` è midnight esclusivo del giorno dopo
+- **DateFilterSheet**: toggle "Single date / Custom range" + `DatePicker(.graphical)`; range usa step machine (`rangeStep`: 0=FROM, 1=TO)
 
 ### Formato Valuta
 - **Formato italiano ovunque**: € 1.234,56 (punto migliaia, virgola decimali)
@@ -104,6 +131,8 @@ Categorie predefinite: Fuel, Food, Maintenance, Crew, Supplies, Transport, Moori
 ### Report PDF
 - Salvati in **iCloud Drive** se disponibile, altrimenti `Documents/Reports/`
 - Migrazione automatica da locale a iCloud all'avvio
+- **`localReportsPath`**: URL pura senza side effect (usata da `getSavedReports` e `migrateLocalPDFs`)
+- **`localReportsDirectory`**: crea `Documents/Reports/` solo al momento della scrittura (evita cartella vuota in Files quando iCloud è attivo)
 - Includono grafico a torta per categorie
 - **Colonna Type** nella tabella dettagli (mostra C/R/I)
 - **Legenda header su due colonne**: Yacht/Captain (sinistra), Entry Types C/R/I (destra)

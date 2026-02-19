@@ -12,6 +12,7 @@ struct ManageCategoriesView: View {
 
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Category.name) private var categories: [Category]
+    @Query private var learnedKeywords: [LearnedKeyword]
 
     @State private var showingAddCategory = false
     @State private var categoryToEdit: Category?
@@ -162,6 +163,7 @@ struct ManageCategoriesView: View {
     }
 
     private func deleteCategory(_ category: Category) {
+        deleteLearnedKeywords(for: category.name)
         modelContext.delete(category)
         try? modelContext.save()
         categoryToDelete = nil
@@ -173,9 +175,18 @@ struct ManageCategoriesView: View {
                 expense.category = target
             }
         }
+        deleteLearnedKeywords(for: category.name)
         modelContext.delete(category)
         try? modelContext.save()
         categoryToDelete = nil
+    }
+
+    /// Rimuove tutte le LearnedKeyword associate a una categoria prima della cancellazione
+    private func deleteLearnedKeywords(for categoryName: String) {
+        let matching = learnedKeywords.filter { $0.categoryName == categoryName }
+        for keyword in matching {
+            modelContext.delete(keyword)
+        }
     }
 }
 
