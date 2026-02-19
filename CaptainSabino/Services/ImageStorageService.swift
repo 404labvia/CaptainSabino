@@ -67,7 +67,7 @@ final class ImageStorageService {
 
     private func buildFilename(date: Date, amount: Double, category: String, merchant: String) -> String {
         let df = DateFormatter()
-        df.dateFormat = "yyyyMMdd"
+        df.dateFormat = "yyyy-MM-dd"
         let dateStr = df.string(from: date)
 
         let nf = NumberFormatter()
@@ -84,13 +84,13 @@ final class ImageStorageService {
 
     private func sanitizeFilenameComponent(_ s: String) -> String {
         let sanitized = s.components(separatedBy: CharacterSet.alphanumerics.inverted)
-            .joined(separator: "_")
-        // Rimuovi underscore multipli consecutivi
+            .joined(separator: "-")
+        // Rimuovi trattini multipli consecutivi
         var result = sanitized
-        while result.contains("__") {
-            result = result.replacingOccurrences(of: "__", with: "_")
+        while result.contains("--") {
+            result = result.replacingOccurrences(of: "--", with: "-")
         }
-        return result.trimmingCharacters(in: CharacterSet(charactersIn: "_"))
+        return result.trimmingCharacters(in: CharacterSet(charactersIn: "-"))
     }
 
     /// Carica UIImage dal filename e dal tipo di entrata

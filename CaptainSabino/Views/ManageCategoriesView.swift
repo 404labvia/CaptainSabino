@@ -2,8 +2,7 @@
 //  ManageCategoriesView.swift
 //  CaptainSabino
 //
-//  Gestione categorie: visualizza predefinite + CRUD per categorie custom
-//
+//  Gestione categorie: visualizza predefinite + CRUD per categorie custom + delete predefinite
 
 import SwiftUI
 import SwiftData
@@ -18,6 +17,7 @@ struct ManageCategoriesView: View {
     @State private var categoryToEdit: Category?
     @State private var categoryToDelete: Category?
     @State private var showingDeleteConfirmation = false
+    @State private var showingMoveSheet = false
 
     // MARK: - Computed Properties
 
@@ -39,8 +39,7 @@ struct ManageCategoriesView: View {
                     CategoryManageRow(category: category)
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             Button(role: .destructive) {
-                                categoryToDelete = category
-                                showingDeleteConfirmation = true
+                                requestDelete(category)
                             } label: {
                                 Label("Delete", systemImage: "trash")
                             }
@@ -80,10 +79,17 @@ struct ManageCategoriesView: View {
                 }
             }
 
-            // Sezione categorie predefinite (solo lettura)
+            // Sezione categorie predefinite (delete abilitato)
             Section("Predefined Categories (\(predefinedCategories.count))") {
                 ForEach(predefinedCategories) { category in
                     CategoryManageRow(category: category)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button(role: .destructive) {
+                                requestDelete(category)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
                 }
             }
         }
@@ -94,6 +100,26 @@ struct ManageCategoriesView: View {
         }
         .sheet(item: $categoryToEdit) { category in
             AddEditCategoryView(existingCategory: category, allCategories: categories)
+        }
+        .sheet(isPresented: $showingMoveSheet) {
+            if let cat = categoryToDelete {
+                MoveCategoryExpensesSheet(
+                    categoryToDelete: cat,
+                    availableCategories: categories.filter { $0.id != cat.id },
+                    onMoveAndDelete: { target in
+                        moveAndDeleteCategory(cat, to: target)
+                        showingMoveSheet = false
+                    },
+                    onDeleteOnly: {
+                        deleteCategory(cat)
+                        showingMoveSheet = false
+                    },
+                    onCancel: {
+                        categoryToDelete = nil
+                        showingMoveSheet = false
+                    }
+                )
+            }
         }
         .confirmationDialog(
             deleteDialogTitle,
@@ -115,37 +141,119 @@ struct ManageCategoriesView: View {
 
     // MARK: - Helpers
 
+    /// Decide se mostrare il confirmation dialog (nessuna spesa) o lo sheet move-expenses
+    private func requestDelete(_ category: Category) {
+        categoryToDelete = category
+        let count = category.expenses?.count ?? 0
+        if count > 0 {
+            showingMoveSheet = true
+        } else {
+            showingDeleteConfirmation = true
+        }
+    }
+
     private var deleteDialogTitle: String {
         guard let cat = categoryToDelete else { return "Delete Category?" }
-        let count = cat.expenses?.count ?? 0
-        if count > 0 {
-            return "Category has \(count) expense\(count == 1 ? "" : "s")"
-        }
         return "Delete \"\(cat.name)\"?"
     }
 
     private var deleteDialogMessage: String {
-        guard let cat = categoryToDelete else { return "" }
-        let count = cat.expenses?.count ?? 0
-        if count > 0 {
-            return "The category will be removed from the list but the \(count) associated expense\(count == 1 ? "" : "s") will not be deleted."
-        }
         return "This action cannot be undone."
     }
 
     private func deleteCategory(_ category: Category) {
-        let expenseCount = category.expenses?.count ?? 0
-        if expenseCount > 0 {
-            // Soft delete: rimuovi solo dalla lista predefinite/custom, non eliminare
-            // Le spese mantengono il riferimento alla categoria ma non è più visibile in selezione
-            // Marchiamo come non predefinita e usiamo un nome oscurato per nasconderla
-            // In realtà il nullify di SwiftData gestisce automaticamente la relazione
-            modelContext.delete(category)
-        } else {
-            modelContext.delete(category)
-        }
+        modelContext.delete(category)
         try? modelContext.save()
         categoryToDelete = nil
+    }
+
+    private func moveAndDeleteCategory(_ category: Category, to target: Category) {
+        if let expenses = category.expenses {
+            for expense in expenses {
+                expense.category = target
+            }
+        }
+        modelContext.delete(category)
+        try? modelContext.save()
+        categoryToDelete = nil
+    }
+}
+
+// MARK: - Move Category Expenses Sheet
+
+struct MoveCategoryExpensesSheet: View {
+    let categoryToDelete: Category
+    let availableCategories: [Category]
+    let onMoveAndDelete: (Category) -> Void
+    let onDeleteOnly: () -> Void
+    let onCancel: () -> Void
+
+    @State private var selectedTarget: Category?
+
+    var expenseCount: Int { categoryToDelete.expenses?.count ?? 0 }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Text("\"\(categoryToDelete.name)\" has \(expenseCount) expense\(expenseCount == 1 ? "" : "s"). Select a category to reassign them to, or delete without reassigning.")
+                        .foregroundStyle(.secondary)
+                        .font(.subheadline)
+                }
+
+                Section("Move expenses to:") {
+                    ForEach(availableCategories) { cat in
+                        HStack(spacing: 12) {
+                            ZStack {
+                                Circle()
+                                    .fill(cat.color.opacity(0.2))
+                                    .frame(width: 28, height: 28)
+                                Image(systemName: cat.icon)
+                                    .font(.caption)
+                                    .foregroundStyle(cat.color)
+                            }
+                            Text(cat.name)
+                            Spacer()
+                            if selectedTarget?.id == cat.id {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(Color.navy)
+                                    .fontWeight(.semibold)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture { selectedTarget = cat }
+                    }
+                }
+
+                Section {
+                    Button("Delete without reassigning", role: .destructive) {
+                        onDeleteOnly()
+                    }
+                } footer: {
+                    Text("Expenses will appear as \"Unknown\" category.")
+                        .font(.caption)
+                }
+            }
+            .navigationTitle("Delete Category")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { onCancel() }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Move & Delete") {
+                        if let target = selectedTarget { onMoveAndDelete(target) }
+                    }
+                    .foregroundStyle(selectedTarget != nil ? Color.navy : .secondary)
+                    .fontWeight(.semibold)
+                    .disabled(selectedTarget == nil)
+                }
+            }
+            .onAppear {
+                selectedTarget = availableCategories.first
+            }
+        }
+        .presentationDetents([.large])
     }
 }
 

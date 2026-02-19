@@ -562,6 +562,7 @@ struct DateFilterSheet: View {
     @State private var fromDate: Date = Date()
     @State private var toDate: Date = Date()
     @State private var rangeStep: Int = 0   // 0 = scegli FROM, 1 = scegli TO
+    @State private var didAppear = false    // guard onChange durante il ripristino iniziale
 
     private var shortFormatter: DateFormatter {
         let f = DateFormatter()
@@ -594,6 +595,7 @@ struct DateFilterSheet: View {
                         .datePickerStyle(.graphical)
                         .padding(.horizontal, 8)
                         .onChange(of: singleDate) { _, newDate in
+                            guard didAppear else { return }
                             let cal = Calendar.current
                             customDateFrom = cal.startOfDay(for: newDate)
                             customDateTo = nil   // nil = singola giornata
@@ -630,6 +632,7 @@ struct DateFilterSheet: View {
                             .datePickerStyle(.graphical)
                             .padding(.horizontal, 8)
                             .onChange(of: fromDate) { _, _ in
+                                guard didAppear else { return }
                                 toDate = fromDate
                                 withAnimation(.easeInOut(duration: 0.15)) { rangeStep = 1 }
                             }
@@ -638,6 +641,7 @@ struct DateFilterSheet: View {
                             .datePickerStyle(.graphical)
                             .padding(.horizontal, 8)
                             .onChange(of: toDate) { _, newDate in
+                                guard didAppear else { return }
                                 let cal = Calendar.current
                                 customDateFrom = cal.startOfDay(for: fromDate)
                                 customDateTo = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: newDate))
@@ -668,6 +672,8 @@ struct DateFilterSheet: View {
                         rangeStep = 0   // l'utente riparte a scegliere FROM
                     }
                 }
+                // Attiva il flag DOPO il primo render così onChange non scatta durante il ripristino
+                DispatchQueue.main.async { didAppear = true }
             }
         }
         .presentationDetents([.large])
