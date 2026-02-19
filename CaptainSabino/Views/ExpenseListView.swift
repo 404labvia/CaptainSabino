@@ -9,14 +9,6 @@ import SwiftUI
 import SwiftData
 import QuickLook
 
-// MARK: - Quick Filter Enum
-
-enum QuickFilter: String, CaseIterable {
-    case all = "All"
-    case last7 = "7 days"
-    case thisMonth = "Month"
-}
-
 struct ExpenseListView: View {
     // MARK: - Properties
 
@@ -26,7 +18,6 @@ struct ExpenseListView: View {
     @Query private var settings: [YachtSettings]
 
     @State private var searchText = ""
-    @State private var quickFilter: QuickFilter = .all
     @State private var customDateFrom: Date? = nil
     @State private var customDateTo: Date? = nil
     @State private var showingDateSheet = false
@@ -98,12 +89,10 @@ struct ExpenseListView: View {
             }
             .sheet(isPresented: $showingDateSheet) {
                 DateFilterSheet(
-                    quickFilter: $quickFilter,
                     customDateFrom: $customDateFrom,
                     customDateTo: $customDateTo,
                     onApply: { showingDateSheet = false },
                     onReset: {
-                        quickFilter = .all
                         customDateFrom = nil
                         customDateTo = nil
                         showingDateSheet = false
@@ -139,25 +128,15 @@ struct ExpenseListView: View {
             }
         }
 
-        // Filtro data: custom range ha priorità sui chip veloci
-        let now = Date()
-        let cal = Calendar.current
-        if let from = customDateFrom, let to = customDateTo {
+        // Filtro data: singola giornata (customDateTo == nil) o range (customDateTo != nil)
+        if let from = customDateFrom {
+            let cal = Calendar.current
             let startOfFrom = cal.startOfDay(for: from)
-            let endOfTo = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: to))!
-            result = result.filter { $0.date >= startOfFrom && $0.date < endOfTo }
-        } else if let from = customDateFrom {
-            let startOfFrom = cal.startOfDay(for: from)
-            result = result.filter { $0.date >= startOfFrom }
-        } else {
-            switch quickFilter {
-            case .all:
-                break
-            case .last7:
-                let cutoff = cal.date(byAdding: .day, value: -7, to: now)!
-                result = result.filter { $0.date >= cutoff }
-            case .thisMonth:
-                result = result.filter { cal.isDate($0.date, equalTo: now, toGranularity: .month) }
+            if let to = customDateTo {
+                result = result.filter { $0.date >= startOfFrom && $0.date < to }
+            } else {
+                let nextDay = cal.date(byAdding: .day, value: 1, to: startOfFrom)!
+                result = result.filter { $0.date >= startOfFrom && $0.date < nextDay }
             }
         }
 
@@ -209,86 +188,36 @@ struct ExpenseListView: View {
     }
 
     private var searchAndFilterSection: some View {
-        VStack(spacing: 8) {
-            // Search bar + calendario
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
-                    .font(.subheadline)
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+                .font(.subheadline)
 
-                TextField("Search merchant or category...", text: $searchText)
-                    .font(.subheadline)
+            TextField("Search merchant or category...", text: $searchText)
+                .font(.subheadline)
 
-                if !searchText.isEmpty {
-                    Button {
-                        searchText = ""
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                // Bottone calendario → apre DateFilterSheet
+            if !searchText.isEmpty {
                 Button {
-                    showingDateSheet = true
+                    searchText = ""
                 } label: {
-                    Image(systemName: "calendar")
-                        .font(.subheadline)
-                        .foregroundStyle(customDateFrom != nil ? Color.royalBlue : .secondary)
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(Color(.secondarySystemGroupedBackground))
-            .cornerRadius(10)
 
-            // 3 chip compatti + badge Custom se filtro custom attivo
-            HStack(spacing: 8) {
-                ForEach(QuickFilter.allCases, id: \.self) { filter in
-                    FilterChip(
-                        title: filter.rawValue,
-                        isSelected: quickFilter == filter && customDateFrom == nil
-                    ) {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            quickFilter = filter
-                            customDateFrom = nil
-                            customDateTo = nil
-                        }
-                    }
-                }
-
-                // Badge Custom con X per reset
-                if customDateFrom != nil {
-                    HStack(spacing: 4) {
-                        Text("Custom")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(Color.cream)
-                        Image(systemName: "xmark")
-                            .font(.caption2)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(Color.cream)
-                            .onTapGesture {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    customDateFrom = nil
-                                    customDateTo = nil
-                                    quickFilter = .all
-                                }
-                            }
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 7)
-                    .background(Capsule().fill(Color.navy))
-                    .contentShape(Capsule())
-                    .onTapGesture {
-                        showingDateSheet = true
-                    }
-                }
-
-                Spacer()
+            // Bottone calendario → apre DateFilterSheet; diventa blu quando filtro attivo
+            Button {
+                showingDateSheet = true
+            } label: {
+                Image(systemName: customDateFrom != nil ? "calendar.badge.checkmark" : "calendar")
+                    .font(.subheadline)
+                    .foregroundStyle(customDateFrom != nil ? Color.royalBlue : .secondary)
             }
-            .padding(.vertical, 2)
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color(.secondarySystemGroupedBackground))
+        .cornerRadius(10)
     }
 
     private var expenseListView: some View {
@@ -318,17 +247,17 @@ struct ExpenseListView: View {
                 .font(.system(size: 70))
                 .foregroundStyle(.gray)
 
-            Text(searchText.isEmpty && quickFilter == .all && customDateFrom == nil ? "No Expenses Yet" : "No Results")
+            Text(searchText.isEmpty && customDateFrom == nil ? "No Expenses Yet" : "No Results")
                 .font(.title2)
                 .fontWeight(.semibold)
 
-            Text(searchText.isEmpty && quickFilter == .all && customDateFrom == nil
+            Text(searchText.isEmpty && customDateFrom == nil
                  ? "Tap + to add your first expense"
                  : "Try a different search or filter")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
-            if searchText.isEmpty && quickFilter == .all && customDateFrom == nil {
+            if searchText.isEmpty && customDateFrom == nil {
                 Button {
                     showingAddExpense.toggle()
                 } label: {
@@ -450,33 +379,6 @@ struct ExpenseListView: View {
             withAnimation(.spring(response: 0.3)) {
                 showingToast = false
             }
-        }
-    }
-}
-
-// MARK: - Filter Chip
-
-struct FilterChip: View {
-    let title: String
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.caption)
-                .fontWeight(isSelected ? .semibold : .regular)
-                .foregroundStyle(isSelected ? Color.cream : .primary)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
-                .background(
-                    Capsule()
-                        .fill(isSelected ? Color.navy : Color(.secondarySystemGroupedBackground))
-                )
-                .overlay(
-                    Capsule()
-                        .strokeBorder(isSelected ? Color.clear : Color(.separator), lineWidth: 1)
-                )
         }
     }
 }
@@ -650,49 +552,101 @@ struct ReceiptImageViewer: View {
 // MARK: - Date Filter Sheet
 
 struct DateFilterSheet: View {
-    @Binding var quickFilter: QuickFilter
     @Binding var customDateFrom: Date?
     @Binding var customDateTo: Date?
     let onApply: () -> Void
     let onReset: () -> Void
 
-    @State private var localFrom: Date = Date()
-    @State private var localTo: Date = Date()
+    @State private var isRangeMode: Bool = false
+    @State private var singleDate: Date = Date()
+    @State private var fromDate: Date = Date()
+    @State private var toDate: Date = Date()
+    @State private var rangeStep: Int = 0   // 0 = scegli FROM, 1 = scegli TO
+
+    private var shortFormatter: DateFormatter {
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        f.timeStyle = .none
+        return f
+    }
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Quick") {
-                    Button("Last 7 days") {
-                        quickFilter = .last7
-                        customDateFrom = nil
-                        customDateTo = nil
-                        onApply()
-                    }
-                    .foregroundStyle(.primary)
-
-                    Button("This month") {
-                        quickFilter = .thisMonth
-                        customDateFrom = nil
-                        customDateTo = nil
-                        onApply()
-                    }
-                    .foregroundStyle(.primary)
-
-                    Button("Last 30 days") {
-                        let cutoff = Calendar.current.date(byAdding: .day, value: -30, to: Date())!
-                        customDateFrom = cutoff
-                        customDateTo = Date()
-                        quickFilter = .all
-                        onApply()
-                    }
-                    .foregroundStyle(.primary)
+            VStack(spacing: 0) {
+                // Toggle Single / Range
+                Picker("", selection: $isRangeMode) {
+                    Text("Single date").tag(false)
+                    Text("Custom range").tag(true)
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 12)
+                .onChange(of: isRangeMode) { _, _ in
+                    rangeStep = 0
                 }
 
-                Section("Custom range") {
-                    DatePicker("From", selection: $localFrom, displayedComponents: .date)
-                    DatePicker("To", selection: $localTo, displayedComponents: .date)
+                Divider()
+
+                if !isRangeMode {
+                    // SINGLE DATE: tap data → applica e chiude
+                    DatePicker("", selection: $singleDate, displayedComponents: .date)
+                        .datePickerStyle(.graphical)
+                        .padding(.horizontal, 8)
+                        .onChange(of: singleDate) { _, newDate in
+                            let cal = Calendar.current
+                            customDateFrom = cal.startOfDay(for: newDate)
+                            customDateTo = nil   // nil = singola giornata
+                            onApply()
+                        }
+                } else {
+                    // RANGE: step 0 = scegli FROM, step 1 = scegli TO
+                    HStack(spacing: 6) {
+                        if rangeStep == 0 {
+                            Image(systemName: "1.circle.fill")
+                                .foregroundStyle(Color.royalBlue)
+                            Text("Select start date")
+                                .foregroundStyle(Color.royalBlue)
+                        } else {
+                            Image(systemName: "2.circle.fill")
+                                .foregroundStyle(Color.royalBlue)
+                            Text("From \(shortFormatter.string(from: fromDate)) → select end date")
+                                .foregroundStyle(Color.royalBlue)
+                        }
+                        Spacer()
+                        if rangeStep == 1 {
+                            Button("Restart") { rangeStep = 0 }
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .font(.subheadline)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+
+                    // Mostra picker diverso in base allo step, così onChange è sempre fresco
+                    if rangeStep == 0 {
+                        DatePicker("", selection: $fromDate, displayedComponents: .date)
+                            .datePickerStyle(.graphical)
+                            .padding(.horizontal, 8)
+                            .onChange(of: fromDate) { _, _ in
+                                toDate = fromDate
+                                withAnimation(.easeInOut(duration: 0.15)) { rangeStep = 1 }
+                            }
+                    } else {
+                        DatePicker("", selection: $toDate, in: fromDate..., displayedComponents: .date)
+                            .datePickerStyle(.graphical)
+                            .padding(.horizontal, 8)
+                            .onChange(of: toDate) { _, newDate in
+                                let cal = Calendar.current
+                                customDateFrom = cal.startOfDay(for: fromDate)
+                                customDateTo = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: newDate))
+                                onApply()
+                            }
+                    }
                 }
+
+                Spacer()
             }
             .navigationTitle("Date Filter")
             .navigationBarTitleDisplayMode(.inline)
@@ -701,23 +655,22 @@ struct DateFilterSheet: View {
                     Button("Reset") { onReset() }
                         .foregroundStyle(.secondary)
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Apply") {
-                        customDateFrom = localFrom
-                        customDateTo = localTo
-                        quickFilter = .all
-                        onApply()
-                    }
-                    .foregroundStyle(Color.gold)
-                    .fontWeight(.semibold)
-                }
             }
             .onAppear {
-                localFrom = customDateFrom ?? Calendar.current.date(byAdding: .month, value: -1, to: Date())!
-                localTo = customDateTo ?? Date()
+                if let from = customDateFrom {
+                    singleDate = from
+                    fromDate = from
+                    if let to = customDateTo {
+                        // Ripristina range: to è "exclusive", risaliamo al giorno precedente
+                        let lastDay = Calendar.current.date(byAdding: .day, value: -1, to: to) ?? from
+                        toDate = lastDay
+                        isRangeMode = true
+                        rangeStep = 0   // l'utente riparte a scegliere FROM
+                    }
+                }
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.large])
     }
 }
 
