@@ -504,7 +504,10 @@ struct AddExpenseView: View {
            settings.first?.saveReceiptImages != false {
             newExpense.receiptImagePath = try? ImageStorageService.shared.saveImage(
                 image,
-                expenseID: newExpense.id,
+                date: date,
+                amount: amountValue,
+                categoryName: selectedCategory.name,
+                merchantName: merchant.trimmingCharacters(in: .whitespacesAndNewlines),
                 entryType: entryType
             )
         }

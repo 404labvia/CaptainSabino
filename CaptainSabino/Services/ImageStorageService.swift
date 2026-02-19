@@ -41,10 +41,18 @@ final class ImageStorageService {
 
     // MARK: - Public API
 
-    /// Salva UIImage come JPEG (max 350 KB) e ritorna il filename (es. "UUID.jpg")
+    /// Salva UIImage come JPEG (max 200 KB) e ritorna il filename semantico
+    /// Formato: `20260219_150,50€_Fuel_ENI.jpg`
     @discardableResult
-    func saveImage(_ image: UIImage, expenseID: UUID, entryType: EntryType) throws -> String {
-        let filename = "\(expenseID.uuidString).jpg"
+    func saveImage(
+        _ image: UIImage,
+        date: Date,
+        amount: Double,
+        categoryName: String,
+        merchantName: String,
+        entryType: EntryType
+    ) throws -> String {
+        let filename = buildFilename(date: date, amount: amount, category: categoryName, merchant: merchantName)
         let fileURL = directory(for: entryType).appendingPathComponent(filename)
 
         guard let data = compressedJPEG(image) else {
@@ -53,6 +61,36 @@ final class ImageStorageService {
 
         try data.write(to: fileURL, options: .atomic)
         return filename
+    }
+
+    // MARK: - Filename
+
+    private func buildFilename(date: Date, amount: Double, category: String, merchant: String) -> String {
+        let df = DateFormatter()
+        df.dateFormat = "yyyyMMdd"
+        let dateStr = df.string(from: date)
+
+        let nf = NumberFormatter()
+        nf.locale = Locale(identifier: "it_IT")
+        nf.minimumFractionDigits = 2
+        nf.maximumFractionDigits = 2
+        let amountStr = (nf.string(from: NSNumber(value: amount)) ?? "\(amount)") + "€"
+
+        let catStr = sanitizeFilenameComponent(category)
+        let merchantStr = String(sanitizeFilenameComponent(merchant).prefix(20))
+
+        return "\(dateStr)_\(amountStr)_\(catStr)_\(merchantStr).jpg"
+    }
+
+    private func sanitizeFilenameComponent(_ s: String) -> String {
+        let sanitized = s.components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .joined(separator: "_")
+        // Rimuovi underscore multipli consecutivi
+        var result = sanitized
+        while result.contains("__") {
+            result = result.replacingOccurrences(of: "__", with: "_")
+        }
+        return result.trimmingCharacters(in: CharacterSet(charactersIn: "_"))
     }
 
     /// Carica UIImage dal filename e dal tipo di entrata
@@ -88,8 +126,8 @@ final class ImageStorageService {
 
     // MARK: - Compression
 
-    /// Comprime iterativamente fino a max 350 KB (358.400 bytes)
-    private func compressedJPEG(_ image: UIImage, maxBytes: Int = 358_400) -> Data? {
+    /// Comprime iterativamente fino a max 200 KB (204.800 bytes)
+    private func compressedJPEG(_ image: UIImage, maxBytes: Int = 204_800) -> Data? {
         var quality: CGFloat = 0.75
         while quality >= 0.1 {
             if let data = image.jpegData(compressionQuality: quality),

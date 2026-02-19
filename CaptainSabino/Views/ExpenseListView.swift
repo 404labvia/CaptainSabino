@@ -9,14 +9,12 @@ import SwiftUI
 import SwiftData
 import QuickLook
 
-// MARK: - Date Filter Enum
+// MARK: - Quick Filter Enum
 
-enum DateFilter: String, CaseIterable {
+enum QuickFilter: String, CaseIterable {
     case all = "All"
-    case today = "Today"
-    case last7 = "Last 7 days"
-    case last30 = "Last 30 days"
-    case thisMonth = "This month"
+    case last7 = "7 days"
+    case thisMonth = "Month"
 }
 
 struct ExpenseListView: View {
@@ -28,7 +26,10 @@ struct ExpenseListView: View {
     @Query private var settings: [YachtSettings]
 
     @State private var searchText = ""
-    @State private var dateFilter: DateFilter = .all
+    @State private var quickFilter: QuickFilter = .all
+    @State private var customDateFrom: Date? = nil
+    @State private var customDateTo: Date? = nil
+    @State private var showingDateSheet = false
     @State private var showingAddExpense = false
     @State private var showingGenerateSheet = false
     @State private var reportSelectedMonth = Calendar.current.component(.month, from: Date())
@@ -95,6 +96,20 @@ struct ExpenseListView: View {
             .sheet(item: $selectedReceiptExpense) { expense in
                 ReceiptImageViewer(expense: expense)
             }
+            .sheet(isPresented: $showingDateSheet) {
+                DateFilterSheet(
+                    quickFilter: $quickFilter,
+                    customDateFrom: $customDateFrom,
+                    customDateTo: $customDateTo,
+                    onApply: { showingDateSheet = false },
+                    onReset: {
+                        quickFilter = .all
+                        customDateFrom = nil
+                        customDateTo = nil
+                        showingDateSheet = false
+                    }
+                )
+            }
             .alert("Error", isPresented: $showingAlert) {
                 Button("OK") { }
             } message: {
@@ -124,22 +139,26 @@ struct ExpenseListView: View {
             }
         }
 
-        // Filtro data
+        // Filtro data: custom range ha priorità sui chip veloci
         let now = Date()
         let cal = Calendar.current
-        switch dateFilter {
-        case .all:
-            break
-        case .today:
-            result = result.filter { cal.isDateInToday($0.date) }
-        case .last7:
-            let cutoff = cal.date(byAdding: .day, value: -7, to: now)!
-            result = result.filter { $0.date >= cutoff }
-        case .last30:
-            let cutoff = cal.date(byAdding: .day, value: -30, to: now)!
-            result = result.filter { $0.date >= cutoff }
-        case .thisMonth:
-            result = result.filter { cal.isDate($0.date, equalTo: now, toGranularity: .month) }
+        if let from = customDateFrom, let to = customDateTo {
+            let startOfFrom = cal.startOfDay(for: from)
+            let endOfTo = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: to))!
+            result = result.filter { $0.date >= startOfFrom && $0.date < endOfTo }
+        } else if let from = customDateFrom {
+            let startOfFrom = cal.startOfDay(for: from)
+            result = result.filter { $0.date >= startOfFrom }
+        } else {
+            switch quickFilter {
+            case .all:
+                break
+            case .last7:
+                let cutoff = cal.date(byAdding: .day, value: -7, to: now)!
+                result = result.filter { $0.date >= cutoff }
+            case .thisMonth:
+                result = result.filter { cal.isDate($0.date, equalTo: now, toGranularity: .month) }
+            }
         }
 
         return result
@@ -191,7 +210,7 @@ struct ExpenseListView: View {
 
     private var searchAndFilterSection: some View {
         VStack(spacing: 8) {
-            // Search bar inline
+            // Search bar + calendario
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
@@ -208,28 +227,67 @@ struct ExpenseListView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+
+                // Bottone calendario → apre DateFilterSheet
+                Button {
+                    showingDateSheet = true
+                } label: {
+                    Image(systemName: "calendar")
+                        .font(.subheadline)
+                        .foregroundStyle(customDateFrom != nil ? Color.royalBlue : .secondary)
+                }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
             .background(Color(.secondarySystemGroupedBackground))
             .cornerRadius(10)
 
-            // Date filter chips
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(DateFilter.allCases, id: \.self) { filter in
-                        FilterChip(
-                            title: filter.rawValue,
-                            isSelected: dateFilter == filter
-                        ) {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                dateFilter = filter
-                            }
+            // 3 chip compatti + badge Custom se filtro custom attivo
+            HStack(spacing: 8) {
+                ForEach(QuickFilter.allCases, id: \.self) { filter in
+                    FilterChip(
+                        title: filter.rawValue,
+                        isSelected: quickFilter == filter && customDateFrom == nil
+                    ) {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            quickFilter = filter
+                            customDateFrom = nil
+                            customDateTo = nil
                         }
                     }
                 }
-                .padding(.vertical, 2)
+
+                // Badge Custom con X per reset
+                if customDateFrom != nil {
+                    HStack(spacing: 4) {
+                        Text("Custom")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(Color.cream)
+                        Image(systemName: "xmark")
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(Color.cream)
+                            .onTapGesture {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    customDateFrom = nil
+                                    customDateTo = nil
+                                    quickFilter = .all
+                                }
+                            }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .background(Capsule().fill(Color.navy))
+                    .contentShape(Capsule())
+                    .onTapGesture {
+                        showingDateSheet = true
+                    }
+                }
+
+                Spacer()
             }
+            .padding(.vertical, 2)
         }
     }
 
@@ -260,17 +318,17 @@ struct ExpenseListView: View {
                 .font(.system(size: 70))
                 .foregroundStyle(.gray)
 
-            Text(searchText.isEmpty && dateFilter == .all ? "No Expenses Yet" : "No Results")
+            Text(searchText.isEmpty && quickFilter == .all && customDateFrom == nil ? "No Expenses Yet" : "No Results")
                 .font(.title2)
                 .fontWeight(.semibold)
 
-            Text(searchText.isEmpty && dateFilter == .all
+            Text(searchText.isEmpty && quickFilter == .all && customDateFrom == nil
                  ? "Tap + to add your first expense"
                  : "Try a different search or filter")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
-            if searchText.isEmpty && dateFilter == .all {
+            if searchText.isEmpty && quickFilter == .all && customDateFrom == nil {
                 Button {
                     showingAddExpense.toggle()
                 } label: {
@@ -511,6 +569,11 @@ struct ReceiptImageViewer: View {
     let expense: Expense
     @Environment(\.dismiss) private var dismiss
 
+    @State private var zoomScale: CGFloat = 1.0
+    @GestureState private var magnifyBy: CGFloat = 1.0
+    @State private var dragOffset: CGSize = .zero
+    @GestureState private var dragState: CGSize = .zero
+
     private var image: UIImage? {
         guard let path = expense.receiptImagePath else { return nil }
         return ImageStorageService.shared.loadImage(filename: path, entryType: expense.entryType)
@@ -525,6 +588,36 @@ struct ReceiptImageViewer: View {
                             .resizable()
                             .scaledToFit()
                             .frame(width: geo.size.width, height: geo.size.height)
+                            .scaleEffect(zoomScale * magnifyBy)
+                            .offset(
+                                x: dragOffset.width + dragState.width,
+                                y: dragOffset.height + dragState.height
+                            )
+                            .gesture(
+                                MagnificationGesture()
+                                    .updating($magnifyBy) { value, state, _ in state = value }
+                                    .onEnded { value in
+                                        zoomScale = max(1.0, min(zoomScale * value, 5.0))
+                                    }
+                            )
+                            .gesture(
+                                DragGesture()
+                                    .updating($dragState) { value, state, _ in
+                                        state = value.translation
+                                    }
+                                    .onEnded { value in
+                                        if zoomScale > 1.0 {
+                                            dragOffset.width += value.translation.width
+                                            dragOffset.height += value.translation.height
+                                        }
+                                    }
+                            )
+                            .onTapGesture(count: 2) {
+                                withAnimation(.spring(response: 0.3)) {
+                                    zoomScale = 1.0
+                                    dragOffset = .zero
+                                }
+                            }
                     }
                     .ignoresSafeArea(edges: .bottom)
                     .background(Color.black)
@@ -544,9 +637,87 @@ struct ReceiptImageViewer: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Close") { dismiss() }
                         .foregroundStyle(Color.navy)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .background(Color.white.opacity(0.9))
+                        .clipShape(Capsule())
                 }
             }
         }
+    }
+}
+
+// MARK: - Date Filter Sheet
+
+struct DateFilterSheet: View {
+    @Binding var quickFilter: QuickFilter
+    @Binding var customDateFrom: Date?
+    @Binding var customDateTo: Date?
+    let onApply: () -> Void
+    let onReset: () -> Void
+
+    @State private var localFrom: Date = Date()
+    @State private var localTo: Date = Date()
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Quick") {
+                    Button("Last 7 days") {
+                        quickFilter = .last7
+                        customDateFrom = nil
+                        customDateTo = nil
+                        onApply()
+                    }
+                    .foregroundStyle(.primary)
+
+                    Button("This month") {
+                        quickFilter = .thisMonth
+                        customDateFrom = nil
+                        customDateTo = nil
+                        onApply()
+                    }
+                    .foregroundStyle(.primary)
+
+                    Button("Last 30 days") {
+                        let cutoff = Calendar.current.date(byAdding: .day, value: -30, to: Date())!
+                        customDateFrom = cutoff
+                        customDateTo = Date()
+                        quickFilter = .all
+                        onApply()
+                    }
+                    .foregroundStyle(.primary)
+                }
+
+                Section("Custom range") {
+                    DatePicker("From", selection: $localFrom, displayedComponents: .date)
+                    DatePicker("To", selection: $localTo, displayedComponents: .date)
+                }
+            }
+            .navigationTitle("Date Filter")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Reset") { onReset() }
+                        .foregroundStyle(.secondary)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Apply") {
+                        customDateFrom = localFrom
+                        customDateTo = localTo
+                        quickFilter = .all
+                        onApply()
+                    }
+                    .foregroundStyle(Color.gold)
+                    .fontWeight(.semibold)
+                }
+            }
+            .onAppear {
+                localFrom = customDateFrom ?? Calendar.current.date(byAdding: .month, value: -1, to: Date())!
+                localTo = customDateTo ?? Date()
+            }
+        }
+        .presentationDetents([.medium])
     }
 }
 

@@ -99,18 +99,18 @@ class PDFService {
         return reportsURL
     }
 
-    /// Cartella locale per i report PDF (fallback)
-    private var localReportsDirectory: URL? {
-        guard let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            return nil
-        }
-        let reportsPath = documentsPath.appendingPathComponent("Reports", isDirectory: true)
+    /// Solo il path della cartella locale (senza creare la directory)
+    private var localReportsPath: URL? {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("Reports", isDirectory: true)
+    }
 
-        // Crea la cartella se non esiste
+    /// Cartella locale per i report PDF (fallback) — crea la directory solo quando serve per scrivere
+    private var localReportsDirectory: URL? {
+        guard let reportsPath = localReportsPath else { return nil }
         if !FileManager.default.fileExists(atPath: reportsPath.path) {
             try? FileManager.default.createDirectory(at: reportsPath, withIntermediateDirectories: true)
         }
-
         return reportsPath
     }
 
@@ -141,8 +141,10 @@ class PDFService {
 
     /// Migra i PDF locali su iCloud Drive (se disponibile)
     private func migrateLocalPDFsToICloud() {
+        // Usa localReportsPath (senza creare la cartella) per non generare una dir vuota in Files app
         guard isICloudAvailable,
-              let localDir = localReportsDirectory,
+              let localDir = localReportsPath,
+              FileManager.default.fileExists(atPath: localDir.path),
               let iCloudDir = iCloudReportsDirectory else {
             return
         }
@@ -189,8 +191,9 @@ class PDFService {
             }
         }
 
-        // Poi cerca localmente (per report non ancora migrati)
-        if let localDir = localReportsDirectory {
+        // Poi cerca localmente (per report non ancora migrati) — solo se la cartella esiste già
+        if let localDir = localReportsPath,
+           FileManager.default.fileExists(atPath: localDir.path) {
             let localReports = loadReports(from: localDir)
             for report in localReports {
                 let fileName = report.url.lastPathComponent
