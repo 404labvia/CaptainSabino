@@ -431,6 +431,8 @@ struct ContentView: View {
                 prefilledCategory = matchedCategory
                 prefilledDate = invoiceData.date
                 capturedMerchantName = invoiceData.merchantName
+                // Salva la prima pagina del PDF come anteprima (abilita icona camera nella lista)
+                capturedReceiptImage = invoiceData.previewImage
                 showingAddExpense = true
             }
         }

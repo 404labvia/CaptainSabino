@@ -18,6 +18,9 @@ struct ExpenseListView: View {
     @Query private var settings: [YachtSettings]
 
     @State private var searchText = ""
+    @State private var customDateFrom: Date? = nil
+    @State private var customDateTo: Date? = nil
+    @State private var showingDateSheet = false
     @State private var showingAddExpense = false
     @State private var showingGenerateSheet = false
     @State private var reportSelectedMonth = Calendar.current.component(.month, from: Date())
@@ -28,9 +31,10 @@ struct ExpenseListView: View {
     @State private var showingToast = false
     @State private var toastMessage = ""
     @State private var quickLookURL: URL?
+    @State private var selectedReceiptExpense: Expense?
 
     // MARK: - Body
-    
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -49,6 +53,11 @@ struct ExpenseListView: View {
                     .padding(.horizontal)
                     .padding(.top, 10)
 
+                // Search bar + date filter chips
+                searchAndFilterSection
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+
                 // Content
                 if filteredExpenses.isEmpty {
                     emptyStateView
@@ -57,7 +66,6 @@ struct ExpenseListView: View {
                 }
             }
             .navigationBarHidden(true)
-            .searchable(text: $searchText, prompt: "Search expenses...")
             .sheet(isPresented: $showingAddExpense) {
                 AddExpenseView()
             }
@@ -76,6 +84,21 @@ struct ExpenseListView: View {
                     totalAmount: reportTotalAmount
                 )
             }
+            .sheet(item: $selectedReceiptExpense) { expense in
+                ReceiptImageViewer(expense: expense)
+            }
+            .sheet(isPresented: $showingDateSheet) {
+                DateFilterSheet(
+                    customDateFrom: $customDateFrom,
+                    customDateTo: $customDateTo,
+                    onApply: { showingDateSheet = false },
+                    onReset: {
+                        customDateFrom = nil
+                        customDateTo = nil
+                        showingDateSheet = false
+                    }
+                )
+            }
             .alert("Error", isPresented: $showingAlert) {
                 Button("OK") { }
             } message: {
@@ -91,23 +114,35 @@ struct ExpenseListView: View {
             .quickLookPreview($quickLookURL)
         }
     }
-    
+
     // MARK: - Computed Properties
-    
+
     private var filteredExpenses: [Expense] {
         var result = expenses
 
-        // Filter by search text
+        // Filtro testo: merchant + categoria
         if !searchText.isEmpty {
             result = result.filter { expense in
-                expense.notes.localizedCaseInsensitiveContains(searchText) ||
+                expense.merchantName.localizedCaseInsensitiveContains(searchText) ||
                 expense.category?.name.localizedCaseInsensitiveContains(searchText) ?? false
+            }
+        }
+
+        // Filtro data: singola giornata (customDateTo == nil) o range (customDateTo != nil)
+        if let from = customDateFrom {
+            let cal = Calendar.current
+            let startOfFrom = cal.startOfDay(for: from)
+            if let to = customDateTo {
+                result = result.filter { $0.date >= startOfFrom && $0.date < to }
+            } else {
+                let nextDay = cal.date(byAdding: .day, value: 1, to: startOfFrom)!
+                result = result.filter { $0.date >= startOfFrom && $0.date < nextDay }
             }
         }
 
         return result
     }
-    
+
     // MARK: - View Components
 
     private var quickActionsSection: some View {
@@ -152,6 +187,39 @@ struct ExpenseListView: View {
         }
     }
 
+    private var searchAndFilterSection: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+                .font(.subheadline)
+
+            TextField("Search merchant or category...", text: $searchText)
+                .font(.subheadline)
+
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            // Bottone calendario → apre DateFilterSheet; diventa blu quando filtro attivo
+            Button {
+                showingDateSheet = true
+            } label: {
+                Image(systemName: customDateFrom != nil ? "calendar.badge.checkmark" : "calendar")
+                    .font(.subheadline)
+                    .foregroundStyle(customDateFrom != nil ? Color.royalBlue : .secondary)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color(.secondarySystemGroupedBackground))
+        .cornerRadius(10)
+    }
+
     private var expenseListView: some View {
         List {
             ForEach(sortedDays, id: \.self) { day in
@@ -160,7 +228,9 @@ struct ExpenseListView: View {
                         NavigationLink {
                             EditExpenseView(expense: expense)
                         } label: {
-                            ExpenseRowView(expense: expense)
+                            ExpenseRowView(expense: expense) {
+                                selectedReceiptExpense = expense
+                            }
                         }
                     }
                     .onDelete { indexSet in
@@ -170,35 +240,39 @@ struct ExpenseListView: View {
             }
         }
     }
-    
+
     private var emptyStateView: some View {
         VStack(spacing: 20) {
             Image(systemName: "tray")
                 .font(.system(size: 70))
                 .foregroundStyle(.gray)
 
-            Text("No Expenses Yet")
+            Text(searchText.isEmpty && customDateFrom == nil ? "No Expenses Yet" : "No Results")
                 .font(.title2)
                 .fontWeight(.semibold)
 
-            Text("Tap + to add your first expense")
+            Text(searchText.isEmpty && customDateFrom == nil
+                 ? "Tap + to add your first expense"
+                 : "Try a different search or filter")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
-            Button {
-                showingAddExpense.toggle()
-            } label: {
-                Label("Add Expense", systemImage: "plus.circle.fill")
-                    .font(.headline)
-                    .padding()
-                    .background(Color.navy)
-                    .foregroundStyle(Color.cream)
-                    .cornerRadius(12)
+            if searchText.isEmpty && customDateFrom == nil {
+                Button {
+                    showingAddExpense.toggle()
+                } label: {
+                    Label("Add Expense", systemImage: "plus.circle.fill")
+                        .font(.headline)
+                        .padding()
+                        .background(Color.navy)
+                        .foregroundStyle(Color.cream)
+                        .cornerRadius(12)
+                }
             }
         }
         .padding()
     }
-    
+
     private var expensesGroupedByDay: [Date: [Expense]] {
         Dictionary(grouping: filteredExpenses) { $0.dayKey }
     }
@@ -212,7 +286,12 @@ struct ExpenseListView: View {
     private func deleteExpenses(at offsets: IndexSet, on day: Date) {
         let expensesInSection = expensesGroupedByDay[day] ?? []
         for index in offsets {
-            modelContext.delete(expensesInSection[index])
+            let expense = expensesInSection[index]
+            // Elimina immagine associata se presente
+            if let path = expense.receiptImagePath {
+                ImageStorageService.shared.deleteImage(filename: path, entryType: expense.entryType)
+            }
+            modelContext.delete(expense)
         }
     }
 
@@ -308,40 +387,55 @@ struct ExpenseListView: View {
 
 struct ExpenseRowView: View {
     let expense: Expense
-    
+    var onReceiptTap: (() -> Void)?
+
     var body: some View {
-        HStack(spacing: 15) {
+        HStack(spacing: 10) {
             // Category Icon
             if let category = expense.category {
                 ZStack {
                     Circle()
                         .fill(category.color.opacity(0.2))
-                        .frame(width: 50, height: 50)
-                    
+                        .frame(width: 36, height: 36)
+
                     Image(systemName: category.icon)
-                        .font(.title3)
+                        .font(.footnote)
                         .foregroundStyle(category.color)
                 }
             }
-            
+
             // Details
-            VStack(alignment: .leading, spacing: 4) {
-                Text(expense.category?.name ?? "Unknown")
+            VStack(alignment: .leading, spacing: 3) {
+                // Riga 1: merchant name (o categoria se merchant vuoto)
+                Text(expense.merchantName.isEmpty ? (expense.category?.name ?? "Unknown") : expense.merchantName)
                     .font(.headline)
-                
-                if !expense.notes.isEmpty {
-                    Text(expense.notes)
-                        .font(.subheadline)
+                    .lineLimit(1)
+
+                // Riga 2: categoria
+                if let categoryName = expense.category?.name {
+                    Text(categoryName)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
                 }
-                
-                Text(expense.formattedDate)
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
             }
-            
+
             Spacer()
+
+            // Icona camera/scontrino (solo se immagine disponibile)
+            if let path = expense.receiptImagePath,
+               ImageStorageService.shared.loadImage(filename: path, entryType: expense.entryType) != nil {
+                Button {
+                    onReceiptTap?()
+                } label: {
+                    Image(systemName: "camera.fill")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 28, height: 28)
+                        .background(Color(.tertiarySystemGroupedBackground))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+            }
 
             // Entry Type Badge
             EntryTypeBadge(entryType: expense.entryType)
@@ -368,6 +462,221 @@ struct EntryTypeBadge: View {
             .fontWeight(.bold)
             .foregroundStyle(entryType.color)
             .frame(width: 20, height: 20)
+    }
+}
+
+// MARK: - Receipt Image Viewer
+
+struct ReceiptImageViewer: View {
+    let expense: Expense
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var zoomScale: CGFloat = 1.0
+    @GestureState private var magnifyBy: CGFloat = 1.0
+    @State private var dragOffset: CGSize = .zero
+    @GestureState private var dragState: CGSize = .zero
+
+    private var image: UIImage? {
+        guard let path = expense.receiptImagePath else { return nil }
+        return ImageStorageService.shared.loadImage(filename: path, entryType: expense.entryType)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if let image {
+                    GeometryReader { geo in
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: geo.size.width, height: geo.size.height)
+                            .scaleEffect(zoomScale * magnifyBy)
+                            .offset(
+                                x: dragOffset.width + dragState.width,
+                                y: dragOffset.height + dragState.height
+                            )
+                            .gesture(
+                                MagnificationGesture()
+                                    .updating($magnifyBy) { value, state, _ in state = value }
+                                    .onEnded { value in
+                                        zoomScale = max(1.0, min(zoomScale * value, 5.0))
+                                    }
+                            )
+                            .gesture(
+                                DragGesture()
+                                    .updating($dragState) { value, state, _ in
+                                        state = value.translation
+                                    }
+                                    .onEnded { value in
+                                        if zoomScale > 1.0 {
+                                            dragOffset.width += value.translation.width
+                                            dragOffset.height += value.translation.height
+                                        }
+                                    }
+                            )
+                            .onTapGesture(count: 2) {
+                                withAnimation(.spring(response: 0.3)) {
+                                    zoomScale = 1.0
+                                    dragOffset = .zero
+                                }
+                            }
+                    }
+                    .ignoresSafeArea(edges: .bottom)
+                    .background(Color.black)
+                } else {
+                    VStack(spacing: 16) {
+                        Image(systemName: "photo.slash")
+                            .font(.system(size: 60))
+                            .foregroundStyle(.secondary)
+                        Text("Image not available")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .navigationTitle(expense.merchantName.isEmpty ? (expense.category?.name ?? "Receipt") : expense.merchantName)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Close") { dismiss() }
+                        .foregroundStyle(Color.navy)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .background(Color.white.opacity(0.9))
+                        .clipShape(Capsule())
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Date Filter Sheet
+
+struct DateFilterSheet: View {
+    @Binding var customDateFrom: Date?
+    @Binding var customDateTo: Date?
+    let onApply: () -> Void
+    let onReset: () -> Void
+
+    @State private var isRangeMode: Bool = false
+    @State private var singleDate: Date = Date()
+    @State private var fromDate: Date = Date()
+    @State private var toDate: Date = Date()
+    @State private var rangeStep: Int = 0   // 0 = scegli FROM, 1 = scegli TO
+    @State private var didAppear = false    // guard onChange durante il ripristino iniziale
+
+    private var shortFormatter: DateFormatter {
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        f.timeStyle = .none
+        return f
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                // Toggle Single / Range
+                Picker("", selection: $isRangeMode) {
+                    Text("Single date").tag(false)
+                    Text("Custom range").tag(true)
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 12)
+                .onChange(of: isRangeMode) { _, _ in
+                    rangeStep = 0
+                }
+
+                Divider()
+
+                if !isRangeMode {
+                    // SINGLE DATE: tap data → applica e chiude
+                    DatePicker("", selection: $singleDate, displayedComponents: .date)
+                        .datePickerStyle(.graphical)
+                        .padding(.horizontal, 8)
+                        .onChange(of: singleDate) { _, newDate in
+                            guard didAppear else { return }
+                            let cal = Calendar.current
+                            customDateFrom = cal.startOfDay(for: newDate)
+                            customDateTo = nil   // nil = singola giornata
+                            onApply()
+                        }
+                } else {
+                    // RANGE: step 0 = scegli FROM, step 1 = scegli TO
+                    HStack(spacing: 6) {
+                        if rangeStep == 0 {
+                            Image(systemName: "1.circle.fill")
+                                .foregroundStyle(Color.royalBlue)
+                            Text("Select start date")
+                                .foregroundStyle(Color.royalBlue)
+                        } else {
+                            Image(systemName: "2.circle.fill")
+                                .foregroundStyle(Color.royalBlue)
+                            Text("From \(shortFormatter.string(from: fromDate)) → select end date")
+                                .foregroundStyle(Color.royalBlue)
+                        }
+                        Spacer()
+                        if rangeStep == 1 {
+                            Button("Restart") { rangeStep = 0 }
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .font(.subheadline)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+
+                    // Mostra picker diverso in base allo step, così onChange è sempre fresco
+                    if rangeStep == 0 {
+                        DatePicker("", selection: $fromDate, displayedComponents: .date)
+                            .datePickerStyle(.graphical)
+                            .padding(.horizontal, 8)
+                            .onChange(of: fromDate) { _, _ in
+                                guard didAppear else { return }
+                                toDate = fromDate
+                                withAnimation(.easeInOut(duration: 0.15)) { rangeStep = 1 }
+                            }
+                    } else {
+                        DatePicker("", selection: $toDate, in: fromDate..., displayedComponents: .date)
+                            .datePickerStyle(.graphical)
+                            .padding(.horizontal, 8)
+                            .onChange(of: toDate) { _, newDate in
+                                guard didAppear else { return }
+                                let cal = Calendar.current
+                                customDateFrom = cal.startOfDay(for: fromDate)
+                                customDateTo = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: newDate))
+                                onApply()
+                            }
+                    }
+                }
+
+                Spacer()
+            }
+            .navigationTitle("Date Filter")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Reset") { onReset() }
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .onAppear {
+                if let from = customDateFrom {
+                    singleDate = from
+                    fromDate = from
+                    if let to = customDateTo {
+                        // Ripristina range: to è "exclusive", risaliamo al giorno precedente
+                        let lastDay = Calendar.current.date(byAdding: .day, value: -1, to: to) ?? from
+                        toDate = lastDay
+                        isRangeMode = true
+                        rangeStep = 0   // l'utente riparte a scegliere FROM
+                    }
+                }
+                // Attiva il flag DOPO il primo render così onChange non scatta durante il ripristino
+                DispatchQueue.main.async { didAppear = true }
+            }
+        }
+        .presentationDetents([.large])
     }
 }
 

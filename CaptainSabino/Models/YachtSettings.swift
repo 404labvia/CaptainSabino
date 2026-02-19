@@ -30,6 +30,9 @@ final class YachtSettings {
     /// Chiave API Claude (richiesta per OCR scontrini)
     var claudeAPIKey: String?
 
+    /// Salva immagini scontrini/fatture in locale (default: true)
+    var saveReceiptImages: Bool = true
+
     // MARK: - Initializer
 
     /// Inizializzatore per creare le impostazioni
@@ -37,15 +40,18 @@ final class YachtSettings {
     ///   - yachtName: Nome dello yacht
     ///   - captainName: Nome comandante
     ///   - claudeAPIKey: Chiave API Claude opzionale (default: nil)
+    ///   - saveReceiptImages: Salva immagini scontrini in locale (default: true)
     init(
         yachtName: String = "",
         captainName: String = "",
-        claudeAPIKey: String? = nil
+        claudeAPIKey: String? = nil,
+        saveReceiptImages: Bool = true
     ) {
         self.id = UUID()
         self.yachtName = yachtName
         self.captainName = captainName
         self.claudeAPIKey = claudeAPIKey
+        self.saveReceiptImages = saveReceiptImages
         self.createdAt = Date()
         self.updatedAt = Date()
     }
