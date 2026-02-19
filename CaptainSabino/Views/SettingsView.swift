@@ -21,8 +21,13 @@ struct SettingsView: View {
 
     @State private var showingEditSettings = false
     @State private var showingResetConfirmation = false
-    @State private var showAPISection = false
-    @State private var tapCount = 0
+
+    // Accordion expansion state
+    @State private var isYachtExpanded = true
+    @State private var isExpensesExpanded = true
+    @State private var isDataExpanded = true
+    @State private var isScanningExpanded = true
+    @State private var isAboutExpanded = false
 
     // Export/Import states
     @State private var showingExportShare = false
@@ -48,37 +53,42 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
-                yachtInfoSection
-                categoriesSection
-                dataManagementSection
-                storageSection
-                if showAPISection {
-                    receiptScanningSection
+                DisclosureGroup(isExpanded: $isYachtExpanded) {
+                    yachtInfoContent
+                } label: {
+                    Label("Yacht Info", systemImage: "sailboat")
+                        .fontWeight(.semibold)
                 }
-                appInfoSection
+
+                DisclosureGroup(isExpanded: $isExpensesExpanded) {
+                    expensesContent
+                } label: {
+                    Label("Expenses", systemImage: "cart")
+                        .fontWeight(.semibold)
+                }
+
+                DisclosureGroup(isExpanded: $isDataExpanded) {
+                    dataContent
+                } label: {
+                    Label("Data", systemImage: "externaldrive")
+                        .fontWeight(.semibold)
+                }
+
+                DisclosureGroup(isExpanded: $isScanningExpanded) {
+                    receiptScanningContent
+                } label: {
+                    Label("Receipt Scanning", systemImage: "viewfinder.circle")
+                        .fontWeight(.semibold)
+                }
+
+                DisclosureGroup(isExpanded: $isAboutExpanded) {
+                    aboutContent
+                } label: {
+                    Label("About", systemImage: "info.circle")
+                        .fontWeight(.semibold)
+                }
             }
             .navigationTitle("Settings")
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text("Settings")
-                        .font(.headline)
-                        .onTapGesture {
-                            tapCount += 1
-                            if tapCount >= 5 {
-                                withAnimation {
-                                    showAPISection.toggle()
-                                }
-                                tapCount = 0
-                            }
-                            // Reset counter dopo 2 secondi se non si raggiunge il target
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                                if tapCount < 5 {
-                                    tapCount = 0
-                                }
-                            }
-                        }
-                }
-            }
             .sheet(isPresented: $showingEditSettings) {
                 EditSettingsView()
             }
@@ -209,88 +219,62 @@ struct SettingsView: View {
 
     // MARK: - View Components
 
-    private var yachtInfoSection: some View {
-        Section("Yacht Information") {
-            if let settings = yachtSettings {
-                LabeledContent("Yacht", value: settings.yachtName)
-                LabeledContent("Captain", value: settings.captainName)
-
-                Button {
-                    showingEditSettings = true
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "pencil")
-                            .foregroundStyle(Color.gold)
-                        Text("Edit Information")
-                            .foregroundStyle(.primary)
-                    }
+    // Yacht Info group content
+    @ViewBuilder
+    private var yachtInfoContent: some View {
+        if let s = yachtSettings {
+            LabeledContent("Yacht", value: s.yachtName)
+            LabeledContent("Captain", value: s.captainName)
+            Button {
+                showingEditSettings = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "pencil")
+                        .foregroundStyle(Color.gold)
+                    Text("Edit Information")
+                        .foregroundStyle(.primary)
                 }
-            } else {
-                Text("No settings configured")
-                    .foregroundStyle(.secondary)
             }
+        } else {
+            Text("No settings configured")
+                .foregroundStyle(.secondary)
         }
     }
 
-    private var dataManagementSection: some View {
-        Section {
-            // Export
-            Button {
-                exportDatabase()
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "square.and.arrow.up")
-                        .foregroundStyle(Color.gold)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Export Database")
-                            .foregroundStyle(.primary)
-                        Text("\(expenses.count) expenses")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    if isExporting {
-                        ProgressView()
-                    }
+    // Expenses group content (Categorie + Storage)
+    @ViewBuilder
+    private var expensesContent: some View {
+        NavigationLink {
+            ManageCategoriesView()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "square.grid.2x2")
+                    .foregroundStyle(Color.gold)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Manage Categories")
+                        .foregroundStyle(.primary)
+                    Text("\(customCategoriesCount) custom, \(predefinedCategoriesCount) predefined")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
-            .disabled(expenses.isEmpty || isExporting)
-
-            // Import
-            Button {
-                showingImportPicker = true
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "square.and.arrow.down")
-                        .foregroundStyle(Color.gold)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Import Database")
-                            .foregroundStyle(.primary)
-                        Text("From backup file")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-        } header: {
-            Text("Data Management")
-        } footer: {
-            Text("Export creates a backup file you can share via AirDrop, email, or save to Files. Import merges data without duplicating existing expenses.")
         }
-    }
 
-    private var categoriesSection: some View {
-        Section("Categories") {
-            NavigationLink {
-                ManageCategoriesView()
-            } label: {
+        if let currentSettings = yachtSettings {
+            Toggle(isOn: Binding(
+                get: { currentSettings.saveReceiptImages },
+                set: {
+                    currentSettings.saveReceiptImages = $0
+                    try? modelContext.save()
+                }
+            )) {
                 HStack(spacing: 8) {
-                    Image(systemName: "square.grid.2x2")
+                    Image(systemName: "photo.on.rectangle")
                         .foregroundStyle(Color.gold)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Manage Categories")
+                        Text("Save Receipt Images")
                             .foregroundStyle(.primary)
-                        Text("\(customCategoriesCount) custom, \(predefinedCategoriesCount) predefined")
+                        Text(storageUsedText)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -307,36 +291,6 @@ struct SettingsView: View {
         categories.filter { $0.isPredefined }.count
     }
 
-    private var storageSection: some View {
-        Section {
-            if let currentSettings = yachtSettings {
-                Toggle(isOn: Binding(
-                    get: { currentSettings.saveReceiptImages },
-                    set: {
-                        currentSettings.saveReceiptImages = $0
-                        try? modelContext.save()
-                    }
-                )) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "photo.on.rectangle")
-                            .foregroundStyle(Color.gold)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Save Receipt Images")
-                                .foregroundStyle(.primary)
-                            Text(storageUsedText)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            }
-        } header: {
-            Text("Storage")
-        } footer: {
-            Text("When enabled, photos of scanned receipts and uploaded invoices are saved locally on this device for later reference.")
-        }
-    }
-
     private var storageUsedText: String {
         let bytes = ImageStorageService.shared.totalStorageUsed()
         if bytes == 0 { return "No images saved" }
@@ -348,83 +302,95 @@ struct SettingsView: View {
         return String(format: "%.1f MB used", mb)
     }
 
-    private var receiptScanningSection: some View {
-        Section {
-            if let settings = yachtSettings {
-                NavigationLink {
-                    ClaudeAPISettingsView()
-                } label: {
-                    HStack {
-                        Image(systemName: "key")
-                            .foregroundStyle(Color.gold)
-                        Text("Claude API Key")
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        if let apiKey = settings.claudeAPIKey, !apiKey.isEmpty {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.green)
-                                .font(.caption)
-                        } else {
-                            Text("Required")
-                                .foregroundColor(.orange)
-                                .font(.caption)
-                        }
-                    }
+    // Data group content (Export + Import)
+    @ViewBuilder
+    private var dataContent: some View {
+        Button {
+            exportDatabase()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "square.and.arrow.up")
+                    .foregroundStyle(Color.gold)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Export Database")
+                        .foregroundStyle(.primary)
+                    Text("\(expenses.count) expenses")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-
-                if !learnedKeywords.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Image(systemName: "brain.head.profile")
-                                .foregroundStyle(Color.gold)
-                            Text("Learned keywords")
-                                .foregroundStyle(.primary)
-                            Spacer()
-                            Text("\(learnedKeywords.count)")
-                                .foregroundColor(.secondary)
-                                .font(.caption)
-                        }
-
-                        Button(role: .destructive) {
-                            showingResetConfirmation = true
-                        } label: {
-                            Label("Reset learned keywords", systemImage: "arrow.counterclockwise")
-                        }
-                    }
+                Spacer()
+                if isExporting {
+                    ProgressView()
                 }
-
-            } else {
-                Text("No settings configured")
-                    .foregroundStyle(.secondary)
             }
-        } header: {
-            Text("Receipt Scanning")
-        } footer: {
-            Text("Claude API is required to scan receipts. The system learns from your category choices to improve accuracy over time.")
+        }
+        .disabled(expenses.isEmpty || isExporting)
+
+        Button {
+            showingImportPicker = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "square.and.arrow.down")
+                    .foregroundStyle(Color.gold)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Import Database")
+                        .foregroundStyle(.primary)
+                    Text("From backup file")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
     }
 
-    private var appInfoSection: some View {
-        Section("About") {
-            LabeledContent("Version", value: "1.0.0")
-            LabeledContent("Build", value: "1")
-
-            Link(destination: URL(string: "https://support.apple.com")!) {
-                HStack(spacing: 8) {
-                    Image(systemName: "questionmark.circle")
-                        .foregroundStyle(Color.gold)
-                    Text("Support")
-                        .foregroundStyle(.primary)
-                }
+    // Receipt Scanning group content
+    @ViewBuilder
+    private var receiptScanningContent: some View {
+        if learnedKeywords.isEmpty {
+            Text("No learned keywords yet")
+                .foregroundStyle(.secondary)
+                .font(.subheadline)
+        } else {
+            HStack {
+                Image(systemName: "brain.head.profile")
+                    .foregroundStyle(Color.gold)
+                Text("Learned keywords")
+                    .foregroundStyle(.primary)
+                Spacer()
+                Text("\(learnedKeywords.count)")
+                    .foregroundColor(.secondary)
+                    .font(.caption)
             }
 
-            Link(destination: URL(string: "https://www.apple.com/legal/privacy/")!) {
-                HStack(spacing: 8) {
-                    Image(systemName: "hand.raised")
-                        .foregroundStyle(Color.gold)
-                    Text("Privacy Policy")
-                        .foregroundStyle(.primary)
-                }
+            Button(role: .destructive) {
+                showingResetConfirmation = true
+            } label: {
+                Label("Reset learned keywords", systemImage: "arrow.counterclockwise")
+            }
+        }
+    }
+
+    // About group content
+    @ViewBuilder
+    private var aboutContent: some View {
+        LabeledContent("Version", value: "1.0.0")
+        LabeledContent("Build", value: "1")
+
+        Link(destination: URL(string: "https://support.apple.com")!) {
+            HStack(spacing: 8) {
+                Image(systemName: "questionmark.circle")
+                    .foregroundStyle(Color.gold)
+                Text("Support")
+                    .foregroundStyle(.primary)
+            }
+        }
+
+        Link(destination: URL(string: "https://www.apple.com/legal/privacy/")!) {
+            HStack(spacing: 8) {
+                Image(systemName: "hand.raised")
+                    .foregroundStyle(Color.gold)
+                Text("Privacy Policy")
+                    .foregroundStyle(.primary)
             }
         }
     }

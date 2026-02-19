@@ -471,11 +471,6 @@ struct ReceiptImageViewer: View {
     let expense: Expense
     @Environment(\.dismiss) private var dismiss
 
-    @State private var zoomScale: CGFloat = 1.0
-    @GestureState private var magnifyBy: CGFloat = 1.0
-    @State private var dragOffset: CGSize = .zero
-    @GestureState private var dragState: CGSize = .zero
-
     private var image: UIImage? {
         guard let path = expense.receiptImagePath else { return nil }
         return ImageStorageService.shared.loadImage(filename: path, entryType: expense.entryType)
@@ -485,44 +480,9 @@ struct ReceiptImageViewer: View {
         NavigationStack {
             Group {
                 if let image {
-                    GeometryReader { geo in
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: geo.size.width, height: geo.size.height)
-                            .scaleEffect(zoomScale * magnifyBy)
-                            .offset(
-                                x: dragOffset.width + dragState.width,
-                                y: dragOffset.height + dragState.height
-                            )
-                            .gesture(
-                                MagnificationGesture()
-                                    .updating($magnifyBy) { value, state, _ in state = value }
-                                    .onEnded { value in
-                                        zoomScale = max(1.0, min(zoomScale * value, 5.0))
-                                    }
-                            )
-                            .gesture(
-                                DragGesture()
-                                    .updating($dragState) { value, state, _ in
-                                        state = value.translation
-                                    }
-                                    .onEnded { value in
-                                        if zoomScale > 1.0 {
-                                            dragOffset.width += value.translation.width
-                                            dragOffset.height += value.translation.height
-                                        }
-                                    }
-                            )
-                            .onTapGesture(count: 2) {
-                                withAnimation(.spring(response: 0.3)) {
-                                    zoomScale = 1.0
-                                    dragOffset = .zero
-                                }
-                            }
-                    }
-                    .ignoresSafeArea(edges: .bottom)
-                    .background(Color.black)
+                    ZoomableScrollView(image: image)
+                        .ignoresSafeArea(edges: .bottom)
+                        .background(Color.black)
                 } else {
                     VStack(spacing: 16) {
                         Image(systemName: "photo.slash")
@@ -544,6 +504,83 @@ struct ReceiptImageViewer: View {
                         .background(Color.white.opacity(0.9))
                         .clipShape(Capsule())
                 }
+            }
+        }
+    }
+}
+
+// MARK: - Zoomable Scroll View (UIScrollView nativo)
+
+struct ZoomableScrollView: UIViewRepresentable {
+    let image: UIImage
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeUIView(context: Context) -> UIScrollView {
+        let scrollView = UIScrollView()
+        scrollView.minimumZoomScale = 1.0
+        scrollView.maximumZoomScale = 5.0
+        scrollView.showsHorizontalScrollIndicator = false
+        scrollView.showsVerticalScrollIndicator = false
+        scrollView.delegate = context.coordinator
+        scrollView.bouncesZoom = true
+        scrollView.backgroundColor = .black
+
+        let imageView = UIImageView(image: image)
+        imageView.contentMode = .scaleAspectFit
+        imageView.isUserInteractionEnabled = true
+        scrollView.addSubview(imageView)
+        context.coordinator.imageView = imageView
+        context.coordinator.scrollView = scrollView
+
+        let doubleTap = UITapGestureRecognizer(
+            target: context.coordinator,
+            action: #selector(Coordinator.handleDoubleTap(_:))
+        )
+        doubleTap.numberOfTapsRequired = 2
+        scrollView.addGestureRecognizer(doubleTap)
+
+        return scrollView
+    }
+
+    func updateUIView(_ scrollView: UIScrollView, context: Context) {
+        guard let imageView = context.coordinator.imageView else { return }
+        imageView.frame = scrollView.bounds
+        scrollView.contentSize = scrollView.bounds.size
+    }
+
+    class Coordinator: NSObject, UIScrollViewDelegate {
+        weak var imageView: UIImageView?
+        weak var scrollView: UIScrollView?
+
+        func viewForZooming(in scrollView: UIScrollView) -> UIView? { imageView }
+
+        func scrollViewDidZoom(_ scrollView: UIScrollView) {
+            guard let imageView else { return }
+            // Centra l'immagine quando è più piccola del frame dello scroll view
+            let offsetX = max((scrollView.bounds.width - scrollView.contentSize.width) / 2, 0)
+            let offsetY = max((scrollView.bounds.height - scrollView.contentSize.height) / 2, 0)
+            imageView.center = CGPoint(
+                x: scrollView.contentSize.width / 2 + offsetX,
+                y: scrollView.contentSize.height / 2 + offsetY
+            )
+        }
+
+        @objc func handleDoubleTap(_ gesture: UITapGestureRecognizer) {
+            guard let scrollView else { return }
+            if scrollView.zoomScale > 1.0 {
+                // Zoom out al minimo
+                scrollView.setZoomScale(1.0, animated: true)
+            } else {
+                // Zoom in centrato sul punto toccato
+                let point = gesture.location(in: imageView)
+                let zoomRect = CGRect(
+                    x: point.x - 50,
+                    y: point.y - 50,
+                    width: 100,
+                    height: 100
+                )
+                scrollView.zoom(to: zoomRect, animated: true)
             }
         }
     }

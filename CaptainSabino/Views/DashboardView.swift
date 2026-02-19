@@ -130,9 +130,14 @@ struct DashboardView: View {
     private var titleWithMonthSelector: some View {
         HStack(alignment: .center) {
             // Dashboard Title
-            Text("Capt. Sabino")
-                .font(.title2)
-                .fontWeight(.bold)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Welcome")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(settings.first?.captainName ?? "Captain")
+                    .font(.title2)
+                    .fontWeight(.bold)
+            }
 
             Spacer()
 
